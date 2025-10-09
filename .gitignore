@@ -3,6 +3,15 @@
 /node_modules
 /build
 
+# Asegúrate de que tu .gitignore tenga:
+echo "
+# API Keys y secrets
+*.key
+*.pem
+*.txt
+config/secret*
+" >> .gitignore
+
 # Logs
 logs
 *.log
