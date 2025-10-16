@@ -5,7 +5,10 @@ import { UsuariosService } from '../modules/usuarios/usuarios.service';
 
 @Injectable()
 export class AuthService {
-  constructor(private usuariosService: UsuariosService, private jwtService: JwtService) {}
+  constructor(
+    private usuariosService: UsuariosService,
+    private jwtService: JwtService
+  ) {}
 
   async login(nombre: string, contrasena: string) {
     const usuario = await this.usuariosService.buscarPorNombre(nombre);
@@ -14,9 +17,17 @@ export class AuthService {
     const valid = await bcrypt.compare(contrasena, usuario.contrasena);
     if (!valid) throw new UnauthorizedException('Contraseña incorrecta');
 
-    const payload = { sub: usuario.id, role: usuario.rol };
+    const payload = { sub: usuario.id, rol: usuario.rol };
     const token = this.jwtService.sign(payload);
-
-    return { token, role: usuario.rol };
+    
+    return {
+      access_token: token,
+      usuario: {
+        id: usuario.id,
+        nombre: usuario.nombre,
+        rol: usuario.rol,
+      },
+    };
   }
 }
+

@@ -11,7 +11,7 @@ import { AuthController } from './auth.controller';
     UsuariosModule,
     PassportModule,
     JwtModule.register({
-      secret: 'tu_secreto_jwt',
+      secret: 'wm5IM+87iUlaiiz8a0D5fpopv+9iB1mnNyaRiYA623M=',
       signOptions: { expiresIn: '1h' },
     }),
   ],
