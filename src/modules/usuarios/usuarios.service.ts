@@ -67,4 +67,13 @@ export class UsuariosService {
   async listar(): Promise<Usuario[]> {
     return await this.usuarioRepository.find();
   }
+
+  async buscarPorNombre(nombre: string): Promise<Usuario | null> {
+    return await this.usuarioRepository.findOne({
+      where: [
+        { correo: nombre},
+        {nombre},
+      ]
+    })
+  }
 }
