@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete } from '@nestjs/common';
 import { UsuariosService } from './usuarios.service';
-import { CrearUsuarioDto, LoginUsuarioDto } from '../../dtos/usuario.dto';
+import { CrearUsuarioDto, LoginUsuarioDto, ActualizarUsuarioDto } from '../../dtos/usuario.dto';
 
 @Controller('usuarios')
 export class UsuariosController {
@@ -27,5 +27,23 @@ export class UsuariosController {
   @Get()
   async listar() {
     return await this.usuariosService.listar();
+  }
+
+  @Put(':id')
+  async actualizar(@Param('id') id: string, @Body() dto: ActualizarUsuarioDto) {
+    const user = await this.usuariosService.actualizarUsuario(+id, dto);
+    return { message: 'Usuario actualizado con éxito', user };
+  }
+
+  @Put(':id/rol')
+  async cambiarRol(@Param('id') id: string, @Body() body: { rol: string }) {
+    const user = await this.usuariosService.cambiarRol(+id, body.rol);
+    return { message: 'Rol actualizado con éxito', user };
+  }
+
+  @Delete(':id')
+  async eliminar(@Param('id') id: string) {
+    await this.usuariosService.eliminarUsuario(+id);
+    return { message: 'Usuario eliminado con éxito' };
   }
 }
