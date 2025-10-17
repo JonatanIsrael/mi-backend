@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Usuario } from '../../entities/usuario.entity';
-import { CrearUsuarioDto, LoginUsuarioDto } from '../../dtos/usuario.dto';
+import { CrearUsuarioDto, LoginUsuarioDto, ActualizarUsuarioDto } from '../../dtos/usuario.dto';
 import * as bcrypt from 'bcryptjs';
 
 @Injectable()
@@ -66,6 +66,38 @@ export class UsuariosService {
 
   async listar(): Promise<Usuario[]> {
     return await this.usuarioRepository.find();
+  }
+
+async actualizarUsuario(id: number, dto: ActualizarUsuarioDto): Promise<Usuario> {
+    const usuario = await this.encontrarPorId(id);
+    
+    if (dto.correo && dto.correo !== usuario.correo) {
+      const existe = await this.usuarioRepository.findOne({ 
+        where: { correo: dto.correo } 
+      });
+      if (existe) {
+        throw new UnauthorizedException('El correo ya está registrado.');
+      }
+    }
+
+    Object.assign(usuario, dto);
+    return await this.usuarioRepository.save(usuario);
+  }
+
+  async eliminarUsuario(id: number): Promise<void> {
+    const usuario = await this.encontrarPorId(id);
+    await this.usuarioRepository.remove(usuario);
+  }
+
+  async cambiarRol(id: number, nuevoRol: string): Promise<Usuario> {
+    const rolesPermitidos = ['administrador', 'investigador', 'alumno'];
+    if (!rolesPermitidos.includes(nuevoRol)) {
+      throw new BadRequestException('Rol no válido');
+    }
+
+    const usuario = await this.encontrarPorId(id);
+    usuario.rol = nuevoRol;
+    return await this.usuarioRepository.save(usuario);
   }
 
   async buscarPorNombre(nombre: string): Promise<Usuario | null> {
