@@ -17,7 +17,7 @@ export class UsuariosService {
     const existe = await this.usuarioRepository.findOne({ 
       where: [
         { correo },
-        { nombre: dto.nombre } // También verificar que el nombre no exista
+        { usuario: dto.usuario } // También verificar que el nombre de usuario no exista
       ] 
     });
 
@@ -38,30 +38,30 @@ export class UsuariosService {
     const { correo, contrasena } = dto;
     
     // Buscar por correo O por nombre de usuario
-    const usuario = await this.usuarioRepository.findOne({
+    const nombre_usuario = await this.usuarioRepository.findOne({
       where: [
         { correo }, // Buscar por correo
-        { nombre: correo } // También buscar por nombre (usando el mismo campo)
+        { usuario: correo } // También buscar por nombre (usando el mismo campo)
       ]
     });
 
-    if (!usuario) {
+    if (!nombre_usuario) {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    const esValida = await bcrypt.compare(contrasena, usuario.contrasena);
+    const esValida = await bcrypt.compare(contrasena, nombre_usuario.contrasena);
     if (!esValida) {
       throw new UnauthorizedException('Credenciales inválidas.');
     }
 
-    return usuario;
+    return nombre_usuario;
   }
 
 
   async encontrarPorId(id: number): Promise<Usuario> {
-    const usuario = await this.usuarioRepository.findOne({ where: { id } });
-    if (!usuario) throw new NotFoundException('Usuario no encontrado');
-    return usuario;
+    const usuario_id = await this.usuarioRepository.findOne({ where: { id } });
+    if (!usuario_id) throw new NotFoundException('Usuario no encontrado');
+    return usuario_id;
   }
 
   async listar(): Promise<Usuario[]> {
@@ -69,9 +69,9 @@ export class UsuariosService {
   }
 
 async actualizarUsuario(id: number, dto: ActualizarUsuarioDto): Promise<Usuario> {
-    const usuario = await this.encontrarPorId(id);
+    const user = await this.encontrarPorId(id);
     
-    if (dto.correo && dto.correo !== usuario.correo) {
+    if (dto.correo && dto.correo !== user.correo) {
       const existe = await this.usuarioRepository.findOne({ 
         where: { correo: dto.correo } 
       });
@@ -80,13 +80,13 @@ async actualizarUsuario(id: number, dto: ActualizarUsuarioDto): Promise<Usuario>
       }
     }
 
-    Object.assign(usuario, dto);
-    return await this.usuarioRepository.save(usuario);
+    Object.assign(user, dto);
+    return await this.usuarioRepository.save(user);
   }
 
   async eliminarUsuario(id: number): Promise<void> {
-    const usuario = await this.encontrarPorId(id);
-    await this.usuarioRepository.remove(usuario);
+    const user = await this.encontrarPorId(id);
+    await this.usuarioRepository.remove(user);
   }
 
   async cambiarRol(id: number, nuevoRol: string): Promise<Usuario> {
@@ -95,48 +95,16 @@ async actualizarUsuario(id: number, dto: ActualizarUsuarioDto): Promise<Usuario>
       throw new BadRequestException('Rol no válido');
     }
 
-    const usuario = await this.encontrarPorId(id);
-    usuario.rol = nuevoRol;
-    return await this.usuarioRepository.save(usuario);
+    const user = await this.encontrarPorId(id);
+    user.rol = nuevoRol;
+    return await this.usuarioRepository.save(user);
   }
 
-async actualizarUsuario(id: number, dto: ActualizarUsuarioDto): Promise<Usuario> {
-    const usuario = await this.encontrarPorId(id);
-    
-    if (dto.correo && dto.correo !== usuario.correo) {
-      const existe = await this.usuarioRepository.findOne({ 
-        where: { correo: dto.correo } 
-      });
-      if (existe) {
-        throw new UnauthorizedException('El correo ya está registrado.');
-      }
-    }
-
-    Object.assign(usuario, dto);
-    return await this.usuarioRepository.save(usuario);
-  }
-
-  async eliminarUsuario(id: number): Promise<void> {
-    const usuario = await this.encontrarPorId(id);
-    await this.usuarioRepository.remove(usuario);
-  }
-
-  async cambiarRol(id: number, nuevoRol: string): Promise<Usuario> {
-    const rolesPermitidos = ['administrador', 'investigador', 'alumno'];
-    if (!rolesPermitidos.includes(nuevoRol)) {
-      throw new BadRequestException('Rol no válido');
-    }
-
-    const usuario = await this.encontrarPorId(id);
-    usuario.rol = nuevoRol;
-    return await this.usuarioRepository.save(usuario);
-  }
-
-  async buscarPorNombre(nombre: string): Promise<Usuario | null> {
+  async buscarPorNombre(usuario: string): Promise<Usuario | null> {
     return await this.usuarioRepository.findOne({
       where: [
-        { correo: nombre},
-        {nombre},
+        { correo: usuario},
+        {usuario},
       ]
     })
   }

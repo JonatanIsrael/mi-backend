@@ -20,21 +20,36 @@ export class MuestrasService {
   }
 
   async encontrarPorId(id: number, userId: number) {
-    const muestra = await this.muestrasRepo.findOne({
-      where: { id, repeticion: { tratamiento: { proyecto: { equipo: { miembros: { id: userId } } } } } },
-      relations: ['repeticion', 'repeticion.tratamiento', 'repeticion.tratamiento.proyecto', 'repeticion.tratamiento.proyecto.equipo', 'repeticion.tratamiento.proyecto.equipo.miembros'],
-    });
-    if (!muestra) {
-      throw new NotFoundException(`Muestra con ID ${id} no encontrada`);
-    }
-    return muestra;
-  }
+  const muestra = await this.muestrasRepo
+    .createQueryBuilder('muestra')
+    .leftJoinAndSelect('muestra.repeticion', 'repeticion')
+    .leftJoinAndSelect('repeticion.tratamiento', 'tratamiento')
+    .leftJoinAndSelect('tratamiento.proyecto', 'proyecto')
+    .leftJoinAndSelect('proyecto.equipo', 'equipo')
+    .leftJoinAndSelect('equipo.miembros', 'miembro')
+    .where('muestra.id = :id', { id })
+    .andWhere('miembro.id = :userId', { userId })
+    .getOne();
 
-  async encontrarPorRepeticion(idRepeticion: number, userId: number) {
-    const muestras = await this.muestrasRepo.find({
-      where: { repeticion: { id: idRepeticion, tratamiento: { proyecto: { equipo: { miembros: { id: userId } } } } } },
-      relations: ['repeticion', 'repeticion.tratamiento', 'repeticion.tratamiento.proyecto', 'repeticion.tratamiento.proyecto.equipo', 'repeticion.tratamiento.proyecto.equipo.miembros'],
-    });
-    return muestras;
+  if (!muestra) {
+    throw new NotFoundException(`Muestra con ID ${id} no encontrada`);
   }
+  return muestra;
+}
+
+async encontrarPorRepeticion(idRepeticion: number, userId: number) {
+  const muestras = await this.muestrasRepo
+    .createQueryBuilder('muestra')
+    .leftJoinAndSelect('muestra.repeticion', 'repeticion')
+    .leftJoinAndSelect('repeticion.tratamiento', 'tratamiento')
+    .leftJoinAndSelect('tratamiento.proyecto', 'proyecto')
+    .leftJoinAndSelect('proyecto.equipo', 'equipo')
+    .leftJoinAndSelect('equipo.miembros', 'miembro')
+    .where('repeticion.id = :idRepeticion', { idRepeticion })
+    .andWhere('miembro.id = :userId', { userId })
+    .getMany();
+
+  return muestras;
+}
+
 }

@@ -19,22 +19,35 @@ export class RepeticionesService {
     return this.repeticionesRepo.save(repeticion);
   }
 
-  async encontrarPorId(id: number, userId: number) {
-    const repeticion = await this.repeticionesRepo.findOne({
-      where: { id, tratamiento: { proyecto: { equipo: { miembros: { id: userId } } } } },
-      relations: ['tratamiento', 'tratamiento.proyecto', 'tratamiento.proyecto.equipo', 'tratamiento.proyecto.equipo.miembros'],
-    });
-    if (!repeticion) {
-      throw new NotFoundException(`Repetición con ID ${id} no encontrada`);
-    }
-    return repeticion;
-  }
+      async encontrarPorId(id: number, userId: number) {
+      const repeticion = await this.repeticionesRepo
+        .createQueryBuilder('repeticion')
+        .leftJoinAndSelect('repeticion.tratamiento', 'tratamiento')
+        .leftJoinAndSelect('tratamiento.proyecto', 'proyecto')
+        .leftJoinAndSelect('proyecto.equipo', 'equipo')
+        .leftJoinAndSelect('equipo.miembros', 'miembro')
+        .where('repeticion.id = :id', { id })
+        .andWhere('miembro.id = :userId', { userId })
+        .getOne();
 
-  async encontrarPorTratamiento(idTratamiento: number, userId: number) {
-    const repeticiones = await this.repeticionesRepo.find({
-      where: { tratamiento: { id: idTratamiento, proyecto: { equipo: { miembros: { id: userId } } } } },
-      relations: ['tratamiento', 'tratamiento.proyecto', 'tratamiento.proyecto.equipo', 'tratamiento.proyecto.equipo.miembros'],
-    });
-    return repeticiones;
-  }
+      if (!repeticion) {
+        throw new NotFoundException(`Repetición con ID ${id} no encontrada`);
+      }
+      return repeticion;
+    }
+
+    async encontrarPorTratamiento(idTratamiento: number, userId: number) {
+      const repeticiones = await this.repeticionesRepo
+        .createQueryBuilder('repeticion')
+        .leftJoinAndSelect('repeticion.tratamiento', 'tratamiento')
+        .leftJoinAndSelect('tratamiento.proyecto', 'proyecto')
+        .leftJoinAndSelect('proyecto.equipo', 'equipo')
+        .leftJoinAndSelect('equipo.miembros', 'miembro')
+        .where('tratamiento.id = :idTratamiento', { idTratamiento })
+        .andWhere('miembro.id = :userId', { userId })
+        .getMany();
+
+      return repeticiones;
+    }
+
 }

@@ -12,7 +12,7 @@ export class EquiposService {
     @InjectRepository(Equipo)
     private readonly equiposRepo: Repository<Equipo>,
     private readonly proyectosService: ProyectosService,
-    private readonly usuariosService: UsuariosService, // ✅ Ahora Nest podrá inyectarlo
+    private readonly usuariosService: UsuariosService,
   ) {}
 
   async crear(crearEquipoDto: CrearEquipoDto, userId: number) {
@@ -34,14 +34,14 @@ export class EquiposService {
       ),
     );
 
-    // Crear el equipo
+    // Crear el equipo con relaciones correctas
     const equipo = this.equiposRepo.create({
-      ...crearEquipoDto,
       proyecto,
       miembros,
+      rolEnEquipo: crearEquipoDto.rolEnEquipo,
     });
 
-    // Guardar en la base de datos
     return this.equiposRepo.save(equipo);
   }
 }
+

@@ -1,19 +1,29 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, ManyToMany, JoinTable } from 'typeorm';
 import { Proyecto } from './proyecto.entity';
 import { Usuario } from './usuario.entity';
 
-@Entity()
+export enum RolEquipo {
+  RESPONSABLE = 'responsable',
+  COLABORADOR = 'colaborador',
+}
+
+@Entity('equipos')
 export class Equipo {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
-  nombre!: string;
-
-  @ManyToOne(() => Proyecto, (proyecto) => proyecto.equipo)
+  @ManyToOne(() => Proyecto, (p) => p.equipos, { onDelete: 'CASCADE' })
   proyecto!: Proyecto;
 
+  // Cambiado a ManyToMany para permitir varios miembros
   @ManyToMany(() => Usuario)
   @JoinTable()
   miembros!: Usuario[];
+
+  @Column({ type: 'enum', enum: RolEquipo })
+  rolEnEquipo!: RolEquipo;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  fechaAsignacion!: Date;
 }
+

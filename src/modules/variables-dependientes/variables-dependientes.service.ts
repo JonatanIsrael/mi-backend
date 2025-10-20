@@ -20,21 +20,29 @@ export class VariablesDependientesService {
   }
 
   async encontrarPorId(id: number, userId: number) {
-    const variable = await this.variablesRepo.findOne({
-      where: { id, proyecto: { equipo: { miembros: { id: userId } } } },
-      relations: ['proyecto', 'proyecto.equipo', 'proyecto.equipo.miembros'],
-    });
-    if (!variable) {
-      throw new NotFoundException(`Variable con ID ${id} no encontrada`);
-    }
-    return variable;
-  }
+  const variable = await this.variablesRepo
+    .createQueryBuilder('variable')
+    .leftJoinAndSelect('variable.proyecto', 'proyecto')
+    .leftJoinAndSelect('proyecto.equipo', 'equipo')
+    .leftJoinAndSelect('equipo.miembros', 'miembro')
+    .where('variable.id = :id', { id })
+    .andWhere('miembro.id = :userId', { userId })
+    .getOne();
 
-  async encontrarPorProyecto(idProyecto: number, userId: number) {
-    const variables = await this.variablesRepo.find({
-      where: { proyecto: { id: idProyecto, equipo: { miembros: { id: userId } } } },
-      relations: ['proyecto', 'proyecto.equipo', 'proyecto.equipo.miembros'],
-    });
-    return variables;
+  if (!variable) {
+    throw new NotFoundException(`Variable con ID ${id} no encontrada`);
   }
+  return variable;
+}
+
+async encontrarPorProyecto(idProyecto: number, userId: number) {
+  const variables = await this.variablesRepo
+    .createQueryBuilder('variable')
+    .leftJoinAndSelect('variable.proyecto', 'proyecto')
+    .leftJoinAndSelect('proyecto.equipo', 'equipo')
+    .leftJoinAndSelect('equipo.miembros', 'miembro')
+    .where('proyecto.id = :idProyecto', { idProyecto })
+    .andWhere('miembro.id = :userId', { userId })
+
+}
 }

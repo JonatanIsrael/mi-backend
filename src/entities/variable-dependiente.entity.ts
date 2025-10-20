@@ -1,24 +1,24 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
 import { Proyecto } from './proyecto.entity';
 import { Lectura } from './lectura.entity';
 
-@Entity()
+@Entity('variables_dependientes')
 export class VariableDependiente {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
-  nombre!: string;
-
-  @Column()
-  clave!: string;
-
-  @Column()
-  unidad!: string;
-
-  @ManyToOne(() => Proyecto, (proyecto) => proyecto.variables)
+  @ManyToOne(() => Proyecto, (p) => p.variablesDependientes, { onDelete: 'CASCADE' })
   proyecto!: Proyecto;
 
-  @OneToMany(() => Lectura, (lectura) => lectura.variable)
+  @Column({ length: 255 })
+  nombreCompleto!: string;
+
+  @Column({ length: 10 })
+  clave!: string;
+
+  @Column({ length: 50 })
+  unidad!: string;
+
+  @OneToMany(() => Lectura, (l) => l.variableDependiente)
   lecturas!: Lectura[];
 }

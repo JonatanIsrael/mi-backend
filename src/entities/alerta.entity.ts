@@ -1,20 +1,29 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Proyecto } from './proyecto.entity';
+import { Usuario } from './usuario.entity';
 
-@Entity()
+export enum TipoAlerta {
+  RECORDATORIO = 'recordatorio',
+  ANOMALIA = 'anomalia',
+}
+
+@Entity('alertas')
 export class Alerta {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
-  tipo!: string; // Ejemplo: 'anomalia', 'recordatorio'
-
-  @Column()
-  mensaje!: string;
-
-  @Column()
-  fecha!: Date;
-
-  @ManyToOne(() => Proyecto, (proyecto) => proyecto.alertas)
+  @ManyToOne(() => Proyecto, (p) => p.alertas, { onDelete: 'CASCADE' })
   proyecto!: Proyecto;
+
+  @ManyToOne(() => Usuario, (u) => u.alertas, { onDelete: 'CASCADE' })
+  usuario!: Usuario;
+
+  @Column({ type: 'text' })
+  descripcion!: string;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  fechaEnvio!: Date;
+
+  @Column({ type: 'enum', enum: TipoAlerta })
+  tipo!: TipoAlerta;
 }

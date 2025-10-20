@@ -15,18 +15,33 @@ export class LecturasService {
     private readonly variablesService: VariablesDependientesService,
   ) {}
 
+  // Método crear
   async crear(crearLecturaDto: CrearLecturaDto, userId: number) {
     const muestra = await this.muestrasService.encontrarPorId(crearLecturaDto.id_muestra, userId);
-    const variable = await this.variablesService.encontrarPorId(crearLecturaDto.id_variable_dependiente, userId);
-    const lectura = this.lecturasRepo.create({ ...crearLecturaDto, muestra, variable });
+    const variableDependiente = await this.variablesService.encontrarPorId(crearLecturaDto.id_variable_dependiente, userId);
+
+    const lectura = this.lecturasRepo.create({
+      ...crearLecturaDto,
+      muestra,
+      variableDependiente, // coincide con la propiedad de la entidad
+    });
+
     return this.lecturasRepo.save(lectura);
   }
 
   async encontrarPorId(id: number, userId: number) {
-    const lectura = await this.lecturasRepo.findOne({
-      where: { id, muestra: { repeticion: { tratamiento: { proyecto: { equipo: { miembros: { id: userId } } } } } } },
-      relations: ['muestra', 'muestra.repeticion', 'muestra.repeticion.tratamiento', 'muestra.repeticion.tratamiento.proyecto', 'muestra.repeticion.tratamiento.proyecto.equipo', 'muestra.repeticion.tratamiento.proyecto.equipo.miembros'],
-    });
+    const lectura = await this.lecturasRepo
+      .createQueryBuilder('lectura')
+      .leftJoinAndSelect('lectura.muestra', 'muestra')
+      .leftJoinAndSelect('muestra.repeticion', 'repeticion')
+      .leftJoinAndSelect('repeticion.tratamiento', 'tratamiento')
+      .leftJoinAndSelect('tratamiento.proyecto', 'proyecto')
+      .leftJoinAndSelect('proyecto.equipo', 'equipo')
+      .leftJoinAndSelect('equipo.miembros', 'miembro')
+      .where('lectura.id = :id', { id })
+      .andWhere('miembro.id = :userId', { userId })
+      .getOne();
+
     if (!lectura) {
       throw new NotFoundException(`Lectura con ID ${id} no encontrada`);
     }
@@ -34,10 +49,18 @@ export class LecturasService {
   }
 
   async encontrarPorMuestra(idMuestra: number, userId: number) {
-    const lecturas = await this.lecturasRepo.find({
-      where: { muestra: { id: idMuestra, repeticion: { tratamiento: { proyecto: { equipo: { miembros: { id: userId } } } } } } },
-      relations: ['muestra', 'muestra.repeticion', 'muestra.repeticion.tratamiento', 'muestra.repeticion.tratamiento.proyecto', 'muestra.repeticion.tratamiento.proyecto.equipo', 'muestra.repeticion.tratamiento.proyecto.equipo.miembros'],
-    });
+    const lecturas = await this.lecturasRepo
+      .createQueryBuilder('lectura')
+      .leftJoinAndSelect('lectura.muestra', 'muestra')
+      .leftJoinAndSelect('muestra.repeticion', 'repeticion')
+      .leftJoinAndSelect('repeticion.tratamiento', 'tratamiento')
+      .leftJoinAndSelect('tratamiento.proyecto', 'proyecto')
+      .leftJoinAndSelect('proyecto.equipo', 'equipo')
+      .leftJoinAndSelect('equipo.miembros', 'miembro')
+      .where('muestra.id = :idMuestra', { idMuestra })
+      .andWhere('miembro.id = :userId', { userId })
+      .getMany();
+
     return lecturas;
   }
 }

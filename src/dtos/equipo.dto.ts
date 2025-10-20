@@ -1,5 +1,6 @@
+import { RolEquipo } from "entities/equipo.entity";
 export class CrearEquipoDto {
-  nombre!: string;
   id_proyecto!: number;
   id_miembros!: number[];
+  rolEnEquipo!: RolEquipo;
 }

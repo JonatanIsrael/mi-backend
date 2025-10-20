@@ -1,25 +1,25 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
 import { Muestra } from './muestra.entity';
 import { VariableDependiente } from './variable-dependiente.entity';
 import { Observacion } from './observacion.entity';
 
-@Entity()
+@Entity('lecturas')
 export class Lectura {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @ManyToOne(() => Muestra, (muestra) => muestra.lecturas)
+  @ManyToOne(() => Muestra, (m) => m.lecturas, { onDelete: 'CASCADE' })
   muestra!: Muestra;
 
-  @ManyToOne(() => VariableDependiente, (variable) => variable.lecturas)
-  variable!: VariableDependiente;
+  @ManyToOne(() => VariableDependiente, (v) => v.lecturas, { onDelete: 'CASCADE' })
+  variableDependiente!: VariableDependiente;
 
-  @Column('float')
+  @Column({ type: 'decimal', precision: 10, scale: 2 })
   valor!: number;
 
-  @Column()
-  fecha!: Date;
+  @Column({ type: 'date' })
+  fechaLectura!: Date;
 
-  @OneToMany(() => Observacion, (observacion) => observacion.lectura)
+  @OneToMany(() => Observacion, (o) => o.lectura)
   observaciones!: Observacion[];
 }

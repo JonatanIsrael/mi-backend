@@ -1,5 +1,7 @@
+import { TipoAlerta } from "entities/alerta.entity";
+
 export class CrearAlertaDto {
-  tipo!: string;
+  tipo!: TipoAlerta;
   mensaje!: string;
   id_proyecto!: number;
 }

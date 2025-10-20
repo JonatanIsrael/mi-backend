@@ -1,39 +1,60 @@
-import { Entity, Column, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
-import { Equipo } from './equipo.entity';
-import { Tratamiento } from './tratamiento.entity';
-import { VariableDependiente } from './variable-dependiente.entity';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
+import { Usuario } from './usuario.entity';
 import { Alerta } from './alerta.entity';
 import { Calendario } from './calendario.entity';
+import { Equipo } from './equipo.entity';
+import { Observacion } from './observacion.entity';
+import { Tratamiento } from './tratamiento.entity';
+import { VariableDependiente } from './variable-dependiente.entity';
 
-@Entity()
+export enum TipoDisenio {
+  COMPLETAMENTE_ALEATORIO = 'completamente_aleatorio',
+  POR_BLOQUES = 'por_bloques',
+  POR_ESTRATOS = 'por_estratos',
+  BLOQUEADO = 'bloqueado',
+}
+
+@Entity('proyectos')
 export class Proyecto {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column()
+  @Column({ length: 255 })
   nombre!: string;
 
-  @Column()
+  @Column({ type: 'text', nullable: true })
   descripcion!: string;
 
   @Column()
   id_investigador_principal!: number;
 
-  @Column()
-  tipo_disenio!: string;
+  @ManyToOne(() => Usuario, (u) => u.proyectos, { onDelete: 'CASCADE' })
+  investigadorPrincipal!: Usuario;
 
-  @OneToMany(() => Equipo, (equipo) => equipo.proyecto)
-  equipo!: Equipo[];
+  @Column({ type: 'date', nullable: true })
+  fechaInicio!: Date;
 
-  @OneToMany(() => Tratamiento, (tratamiento) => tratamiento.proyecto)
-  tratamientos!: Tratamiento[];
+  @Column({ type: 'date', nullable: true })
+  fechaFin!: Date;
 
-  @OneToMany(() => VariableDependiente, (variable) => variable.proyecto)
-  variables!: VariableDependiente[];
+  @Column({ type: 'enum', enum: TipoDisenio })
+  tipoDisenio!: TipoDisenio;
 
-  @OneToMany(() => Alerta, (alerta) => alerta.proyecto)
+  @OneToMany(() => Alerta, (a) => a.proyecto)
   alertas!: Alerta[];
 
-  @OneToMany(() => Calendario, (calendario) => calendario.proyecto)
+  @OneToMany(() => Calendario, (c) => c.proyecto)
   calendarios!: Calendario[];
+
+  @OneToMany(() => Equipo, (e) => e.proyecto)
+  equipos!: Equipo[];
+
+  @OneToMany(() => Observacion, (o) => o.proyecto)
+  observaciones!: Observacion[];
+
+  @OneToMany(() => Tratamiento, (t) => t.proyecto)
+  tratamientos!: Tratamiento[];
+
+  @OneToMany(() => VariableDependiente, (v) => v.proyecto)
+  variablesDependientes!: VariableDependiente[];
 }

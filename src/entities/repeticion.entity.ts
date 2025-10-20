@@ -1,18 +1,21 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from 'typeorm';
 import { Tratamiento } from './tratamiento.entity';
 import { Muestra } from './muestra.entity';
 
-@Entity()
+@Entity('repeticiones')
 export class Repeticion {
   @PrimaryGeneratedColumn()
   id!: number;
 
+  @ManyToOne(() => Tratamiento, (t) => t.repeticiones, { onDelete: 'CASCADE' })
+  tratamiento!: Tratamiento;
+
   @Column()
   numero!: number;
 
-  @ManyToOne(() => Tratamiento, (tratamiento) => tratamiento.repeticiones)
-  tratamiento!: Tratamiento;
+  @Column({ type: 'text', nullable: true })
+  descripcion!: string;
 
-  @OneToMany(() => Muestra, (muestra) => muestra.repeticion)
+  @OneToMany(() => Muestra, (m) => m.repeticion)
   muestras!: Muestra[];
 }
