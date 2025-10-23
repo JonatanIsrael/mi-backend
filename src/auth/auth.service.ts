@@ -1,22 +1,33 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
 import { UsuariosService } from '../modules/usuarios/usuarios.service';
+import * as bcrypt from 'bcrypt';
+import { LoginUsuarioDto } from '../dtos/usuario.dto';
+import * as jwt from 'jsonwebtoken';
 
 @Injectable()
 export class AuthService {
-  constructor(private usuariosService: UsuariosService, private jwtService: JwtService) {}
+  constructor(private readonly usuariosService: UsuariosService,
+    private readonly jwtService: JwtService,
+  ) {}
 
-  async login(nombre: string, contrasena: string) {
-    const usuario = await this.usuariosService.buscarPorNombre(nombre);
-    if (!usuario) throw new UnauthorizedException('Usuario no encontrado');
+  async login(dto: LoginUsuarioDto) {
+    console.log('Login DTO recibido', dto);
+    const user = await this.usuariosService.login(dto);
 
-    const valid = await bcrypt.compare(contrasena, usuario.contrasena);
-    if (!valid) throw new UnauthorizedException('Contraseña incorrecta');
+    const token = this.jwtService.sign({ id: user.id, rol: user.rol });
 
-    const payload = { sub: usuario.id, role: usuario.rol };
-    const token = this.jwtService.sign(payload);
-
-    return { token, role: usuario.rol };
+    return {
+      message: 'Login exitoso',
+      user: {
+        id: user.id,
+        usuario: user.usuario,
+        correo: user.correo,
+        rol: user.rol,
+      },
+      token,
+    };
   }
 }
+
+

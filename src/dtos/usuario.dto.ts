@@ -9,7 +9,8 @@ export class CrearUsuarioDto {
 }
 
 export class LoginUsuarioDto {
-  correo!: string;
+  correo?: string;
+  usuario?: string;
   contrasena!: string;
 }
 

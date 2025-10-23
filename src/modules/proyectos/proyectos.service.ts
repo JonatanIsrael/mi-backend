@@ -47,66 +47,56 @@ export class ProyectosService {
   }
 
   async crearProyectoCompleto(dto: CrearProyectoCompletoDto) {
-    const proyecto = new Proyecto();
-    proyecto.nombre = dto.nombre;
-    proyecto.descripcion = dto.descripcion ?? '';
-    proyecto.tipoDisenio = dto.tipo_disenio as TipoDisenio;
-    proyecto.id_investigador_principal = dto.userId;
-    await this.proyectosRepo.save(proyecto);
+  const proyecto = new Proyecto();
+  proyecto.nombre = dto.nombre;
+  proyecto.descripcion = dto.descripcion ?? '';
+  proyecto.tipoDisenio = dto.tipo_disenio as TipoDisenio;
+  proyecto.id_investigador_principal = dto.userId;
 
-    const tratamientosGuardados: Tratamiento[] = [];
-    for (const t of dto.tratamientos) {
-      const tratamiento = new Tratamiento();
-      tratamiento.nombre = t.nombre;
-      tratamiento.descripcion = t.descripcion ?? '';
-      tratamiento.esTestigo = t.esTestigo ?? false;
-      tratamiento.variableIndependiente = t.variableIndependiente;
-      tratamiento.valor = t.valor;
-      tratamiento.unidad = t.unidad;
-      tratamiento.proyecto = proyecto;
-      await this.tratamientoRepo.save(tratamiento);
-      tratamientosGuardados.push(tratamiento);
+  await this.proyectosRepo.save(proyecto);
 
-      for (let i = 1; i <= dto.numRepeticiones; i++) {
-        const repeticion = new Repeticion();
-        repeticion.tratamiento = tratamiento;
-        repeticion.numero = i;
-        await this.repeticionRepo.save(repeticion);
+  // Guardar tratamientos
+  const tratamientosGuardados: Tratamiento[] = [];
+  for (const t of dto.tratamientos) {
+    const tratamiento = new Tratamiento();
+    tratamiento.nombre = t.nombre;
+    tratamiento.variableIndependiente = t.variableIndependiente;
+    tratamiento.valor = t.valor;
+    tratamiento.unidad = t.unidad;
+    tratamiento.proyecto = proyecto;
+    await this.tratamientoRepo.save(tratamiento);
+    tratamientosGuardados.push(tratamiento);
 
-        const muestra = new Muestra();
-        muestra.repeticion = repeticion;
-        muestra.numero = i;
-        muestra.codigo = `M-${tratamiento.id}-${i}`;
-        await this.muestraRepo.save(muestra);
-      }
+    // Guardar repeticiones y muestras
+    for (let i = 1; i <= dto.numRepeticiones; i++) {
+      const repeticion = new Repeticion();
+      repeticion.tratamiento = tratamiento;
+      repeticion.numero = i;
+      await this.repeticionRepo.save(repeticion);
+
+      const muestra = new Muestra();
+      muestra.repeticion = repeticion;
+      muestra.numero = i;
+      muestra.codigo = `M-${tratamiento.id}-${i}`;
+      await this.muestraRepo.save(muestra);
     }
-
-    const variablesGuardadas: VariableDependiente[] = [];
-    for (const v of dto.variablesDependientes) {
-      if (!v.id_proyecto) v.id_proyecto = proyecto.id;
-      const variable = new VariableDependiente();
-      variable.nombreCompleto = v.nombreCompleto;
-      variable.clave = v.clave;
-      variable.unidad = v.unidad;
-      variable.proyecto = proyecto;
-      await this.variableRepo.save(variable);
-      variablesGuardadas.push(variable);
-    }
-
-    const todasMuestras = await this.muestraRepo.find({ relations: ['repeticion', 'repeticion.tratamiento'] });
-    for (const m of todasMuestras) {
-      for (const v of variablesGuardadas) {
-        const lectura = new Lectura();
-        lectura.muestra = m;
-        lectura.variableDependiente = v;
-        lectura.valor = 0;
-        lectura.fechaLectura = new Date();
-        await this.lecturaRepo.save(lectura);
-      }
-    }
-
-    return { proyecto, tratamientos: tratamientosGuardados, variables: variablesGuardadas };
   }
+
+  // Guardar variables dependientes
+  const variablesGuardadas: VariableDependiente[] = [];
+  for (const v of dto.variablesDependientes) {
+    const variable = new VariableDependiente();
+    variable.nombreCompleto = v.nombreCompleto;
+    variable.clave = v.clave;
+    variable.unidad = v.unidad;
+    variable.proyecto = proyecto;
+    await this.variableRepo.save(variable);
+    variablesGuardadas.push(variable);
+  }
+
+  return { proyecto, tratamientos: tratamientosGuardados, variables: variablesGuardadas };
+}
+
 
   async exportarMatriz(id: number, userId: number): Promise<Buffer> {
     // placeholder para exportar matriz, implementar lógica real más adelante
