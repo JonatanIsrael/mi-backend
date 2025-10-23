@@ -1,11 +1,49 @@
-import { Controller, Get, Param, Request, HttpException, HttpStatus, UseGuards, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Request,
+  HttpException,
+  HttpStatus,
+  UseGuards,
+  Res,
+} from '@nestjs/common';
 import type { Request as ExpressRequest, Response as ExpressResponse } from 'express';
 import { ProyectosService } from './proyectos.service';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
+import { CrearProyectoCompletoDto } from '../../dtos/proyecto.dto';
 
 @Controller('proyectos')
 export class ProyectosController {
   constructor(private readonly proyectosService: ProyectosService) {}
+
+  
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  async crearProyectoCompleto(
+    @Body() dto: CrearProyectoCompletoDto,
+    @Request() req: ExpressRequest & { user: { id: number } },
+  ) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        throw new HttpException('No autorizado', HttpStatus.UNAUTHORIZED);
+      }
+      const data = await this.proyectosService.crearProyectoCompleto({
+        ...dto,
+        userId,
+      });
+      return { success: true, proyecto: data.proyecto };
+    } catch (error: any) {
+      throw new HttpException(
+        error.message || 'Error al crear el proyecto',
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
 
   @Get(':id/exportar')
   @UseGuards(JwtAuthGuard)
@@ -36,7 +74,7 @@ export class ProyectosController {
     }
   }
 
-  // 🔹 Endpoint de prueba para la base de datos
+  
   @Get('test-db')
   async testDB() {
     try {

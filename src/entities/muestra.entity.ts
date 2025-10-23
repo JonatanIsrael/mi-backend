@@ -16,6 +16,10 @@ export class Muestra {
   @Column({ type: 'text', nullable: true })
   descripcion!: string;
 
+  @Column({ length: 50, nullable: true })
+  codigo!: string; //
+
   @OneToMany(() => Lectura, (l) => l.muestra)
   lecturas!: Lectura[];
 }
+

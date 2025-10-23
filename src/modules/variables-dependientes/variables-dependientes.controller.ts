@@ -1,6 +1,6 @@
 import { Controller, Post, Get, Body, Param, Request, UseGuards } from '@nestjs/common';
 import { VariablesDependientesService } from './variables-dependientes.service';
-import { CrearVariableDependienteDto } from '../../dtos/variable-dependiente.dto';
+import { CrearVariableDto } from '../../dtos/variable-dependiente.dto'; // ✅ nombre correcto
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 
 @Controller('variables-dependientes')
@@ -9,7 +9,7 @@ export class VariablesDependientesController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  crear(@Body() crearVariableDto: CrearVariableDependienteDto, @Request() req: any) {
+  crear(@Body() crearVariableDto: CrearVariableDto, @Request() req: any) { // ✅ usar CrearVariableDto
     return this.variablesService.crear(crearVariableDto, req.user.id);
   }
 

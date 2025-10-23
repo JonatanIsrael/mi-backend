@@ -1,6 +1,11 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Proyecto } from '../../entities/proyecto.entity';
+import { Tratamiento } from '../../entities/tratamiento.entity';
+import { VariableDependiente } from '../../entities/variable-dependiente.entity';
+import { Repeticion } from '../../entities/repeticion.entity';
+import { Muestra } from '../../entities/muestra.entity';
+import { Lectura } from '../../entities/lectura.entity';
 import { ProyectosService } from './proyectos.service';
 import { ProyectosController } from './proyectos.controller';
 import { AuthModule } from '../../auth/auth.module';
@@ -8,9 +13,16 @@ import { TratamientosModule } from '../tratamientos/tratamientos.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Proyecto]),
+    TypeOrmModule.forFeature([
+      Proyecto,
+      Tratamiento,
+      VariableDependiente,
+      Repeticion,
+      Muestra,
+      Lectura,
+    ]),
     AuthModule,
-    forwardRef(() => TratamientosModule), // rompe la circularidad
+    forwardRef(() => TratamientosModule),
   ],
   controllers: [ProyectosController],
   providers: [ProyectosService],
