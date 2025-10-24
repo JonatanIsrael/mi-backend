@@ -19,7 +19,6 @@ import { CrearProyectoCompletoDto } from '../../dtos/proyecto.dto';
 export class ProyectosController {
   constructor(private readonly proyectosService: ProyectosService) {}
 
-  
   @Post()
   @UseGuards(JwtAuthGuard)
   async crearProyectoCompleto(
@@ -31,10 +30,12 @@ export class ProyectosController {
       if (!userId) {
         throw new HttpException('No autorizado', HttpStatus.UNAUTHORIZED);
       }
+
       const data = await this.proyectosService.crearProyectoCompleto({
         ...dto,
         userId,
       });
+
       return { success: true, proyecto: data.proyecto };
     } catch (error: any) {
       throw new HttpException(
@@ -44,6 +45,36 @@ export class ProyectosController {
     }
   }
 
+  @Get('mis-proyectos')
+  @UseGuards(JwtAuthGuard)
+  async obtenerMisProyectos(@Request() req: ExpressRequest & { user: { id: number } }) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new HttpException('No autorizado', HttpStatus.UNAUTHORIZED);
+    }
+
+    return this.proyectosService.obtenerProyectosParaCard(userId);
+  }
+
+  @Get(':id/lecturas')
+  @UseGuards(JwtAuthGuard)
+  async obtenerLecturas(
+    @Param('id') id: string,
+    @Request() req: ExpressRequest & { user: { id: number } },
+  ) {
+    const userId = req.user?.id;
+    if (!userId) {
+      throw new HttpException('No autorizado', HttpStatus.UNAUTHORIZED);
+    }
+
+    const proyecto = await this.proyectosService.obtenerProyectosConLecturas(+id, userId);
+
+    if (!proyecto) {
+      throw new HttpException('Proyecto no encontrado', HttpStatus.NOT_FOUND);
+    }
+
+    return proyecto;
+  }
 
   @Get(':id/exportar')
   @UseGuards(JwtAuthGuard)
@@ -74,7 +105,6 @@ export class ProyectosController {
     }
   }
 
-  
   @Get('test-db')
   async testDB() {
     try {

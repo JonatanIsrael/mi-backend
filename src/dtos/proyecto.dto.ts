@@ -17,10 +17,13 @@ export class ActualizarProyectoDto {
 }
 
 export class CrearProyectoCompletoDto extends CrearProyectoDto {
+
   userId!: number;
+
   tratamientos!: CrearTratamientoDto[];
   variablesDependientes!: CrearVariableDto[];
   numRepeticiones!: number;
 }
+
 
 

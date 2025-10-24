@@ -10,6 +10,7 @@ import { ProyectosService } from './proyectos.service';
 import { ProyectosController } from './proyectos.controller';
 import { AuthModule } from '../../auth/auth.module';
 import { TratamientosModule } from '../tratamientos/tratamientos.module';
+import { UsuariosModule } from '../usuarios/usuarios.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { TratamientosModule } from '../tratamientos/tratamientos.module';
     ]),
     AuthModule,
     forwardRef(() => TratamientosModule),
+    forwardRef(() => UsuariosModule), // <-- para poder usar UsuariosService
   ],
   controllers: [ProyectosController],
   providers: [ProyectosService],

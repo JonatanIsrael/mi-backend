@@ -25,14 +25,11 @@ export class Proyecto {
   @Column({ type: 'text', nullable: true })
   descripcion!: string;
 
-  @Column()
-  id_investigador_principal!: number;
-
   @ManyToOne(() => Usuario, (u) => u.proyectos, { onDelete: 'CASCADE' })
   investigadorPrincipal!: Usuario;
 
-  @Column({ type: 'date', nullable: true })
-  fechaInicio!: Date;
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  fechaInicio!: Date;  // <- se asignará automáticamente
 
   @Column({ type: 'date', nullable: true })
   fechaFin!: Date;
