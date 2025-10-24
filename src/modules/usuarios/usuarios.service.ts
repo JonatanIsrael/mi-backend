@@ -127,4 +127,14 @@ export class UsuariosService {
     });
     return user || null;
   }
+
+  // 🔹 Buscar usuario por correo
+async encontrarPorCorreo(correo: string): Promise<Usuario> {
+  const usuario = await this.usuarioRepository.findOne({ where: { correo } });
+  if (!usuario) {
+    throw new NotFoundException(`Usuario con correo ${correo} no encontrado`);
+  }
+  return usuario;
+}
+
 }

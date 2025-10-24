@@ -15,7 +15,6 @@ export class Equipo {
   @ManyToOne(() => Proyecto, (p) => p.equipos, { onDelete: 'CASCADE' })
   proyecto!: Proyecto;
 
-  // Cambiado a ManyToMany para permitir varios miembros
   @ManyToMany(() => Usuario)
   @JoinTable()
   miembros!: Usuario[];
@@ -26,4 +25,3 @@ export class Equipo {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   fechaAsignacion!: Date;
 }
-

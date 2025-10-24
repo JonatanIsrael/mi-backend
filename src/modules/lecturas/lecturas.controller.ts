@@ -26,10 +26,4 @@ export class LecturasController {
     return this.lecturasService.encontrarPorMuestra(+idMuestra, req.user.id);
   }
 
-
-  @Put('lecturas/:id')
-  @UseGuards(JwtAuthGuard)
-  async actualizarLectura(@Param('id') id: number, @Body() body: { valor: number }) {
-    return this.lecturaRepo.update(id, { valor: body.valor })
-  }
 }

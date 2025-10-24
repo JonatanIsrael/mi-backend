@@ -1,22 +1,22 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { UsuariosModule } from '../modules/usuarios/usuarios.module';
-import { JwtStrategy } from './jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
+import { JwtStrategy } from './jwt.strategy';
+import { UsuariosModule } from '../modules/usuarios/usuarios.module'; // 🔹 ruta corregida
 
 @Module({
   imports: [
-    UsuariosModule,
+    forwardRef(() => UsuariosModule),
     PassportModule,
     JwtModule.register({
       secret: 'tu_secreto_jwt',
       signOptions: { expiresIn: '12h' },
     }),
   ],
-  providers: [AuthService,JwtStrategy],
+  providers: [AuthService, JwtStrategy],
   controllers: [AuthController],
-  exports: [JwtStrategy, JwtModule],
+  exports: [AuthService, JwtStrategy, JwtModule],
 })
 export class AuthModule {}

@@ -6,11 +6,12 @@ import { VariableDependiente } from '../../entities/variable-dependiente.entity'
 import { Repeticion } from '../../entities/repeticion.entity';
 import { Muestra } from '../../entities/muestra.entity';
 import { Lectura } from '../../entities/lectura.entity';
+import { Equipo } from '../../entities/equipo.entity'; // 🔹 Asegúrate de importarlo
 import { ProyectosService } from './proyectos.service';
 import { ProyectosController } from './proyectos.controller';
-import { AuthModule } from '../../auth/auth.module';
-import { TratamientosModule } from '../tratamientos/tratamientos.module';
 import { UsuariosModule } from '../usuarios/usuarios.module';
+import { AuthModule } from '../../auth/auth.module';
+import { Usuario } from 'entities/usuario.entity';
 
 @Module({
   imports: [
@@ -21,13 +22,14 @@ import { UsuariosModule } from '../usuarios/usuarios.module';
       Repeticion,
       Muestra,
       Lectura,
+      Equipo, 
+      Usuario// 🔹 Aquí se incluye para que NestJS pueda inyectar su repositorio
     ]),
-    AuthModule,
-    forwardRef(() => TratamientosModule),
-    forwardRef(() => UsuariosModule), // <-- para poder usar UsuariosService
+    forwardRef(() => UsuariosModule),
+    forwardRef(() => AuthModule),
   ],
-  controllers: [ProyectosController],
   providers: [ProyectosService],
+  controllers: [ProyectosController],
   exports: [ProyectosService],
 })
 export class ProyectosModule {}
