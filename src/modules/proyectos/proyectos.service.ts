@@ -140,4 +140,10 @@ export class ProyectosService {
   return proyecto;
 }
 
+  async actualizarLecturas(lecturas: { id: number, valor: number }[]) {
+    for (const l of lecturas) {
+      await this.lecturaRepo.update(l.id, { valor: l.valor })
+    }
+    return { success: true }
+  }
 }
