@@ -80,21 +80,45 @@ export class ProyectosService {
     return { proyecto, tratamientos: tratamientosGuardados, variables: variablesGuardadas };
   }
 
-  async obtenerProyectosConLecturas(proyectoId: number, userId: number) {
-    const proyecto = await this.proyectosRepo.findOne({
-      where: { id: proyectoId, investigadorPrincipal: { id: userId } },
-      relations: [
-        'tratamientos',
-        'tratamientos.repeticiones',
-        'tratamientos.repeticiones.muestras',
-        'tratamientos.repeticiones.muestras.lecturas',
-        'tratamientos.repeticiones.muestras.lecturas.variableDependiente',
-        'variablesDependientes',
-      ],
-    });
-    if (!proyecto) throw new NotFoundException('Proyecto no encontrado o no autorizado');
-    return proyecto;
+ async obtenerProyectosConLecturas(proyectoId: number, userId: number) {
+  // Primero obtenemos al usuario autenticado
+  const usuario = await this.usuariosService.encontrarPorId(userId);
+
+  // Verificamos si es admin
+  const esAdmin = usuario.rol === 'administrador';
+
+  // Buscamos el proyecto, con todas sus relaciones
+  const proyecto = await this.proyectosRepo.findOne({
+    where: { id: proyectoId },
+    relations: [
+      'investigadorPrincipal',
+      'equipos',
+      'equipos.miembros',
+      'tratamientos',
+      'tratamientos.repeticiones',
+      'tratamientos.repeticiones.muestras',
+      'tratamientos.repeticiones.muestras.lecturas',
+      'tratamientos.repeticiones.muestras.lecturas.variableDependiente',
+      'variablesDependientes',
+    ],
+  });
+
+  if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
+
+  // Permitir acceso si:
+  // 1. Es admin
+  // 2. Es el investigador principal
+  // 3. Está en el equipo del proyecto
+  const esPropietario = proyecto.investigadorPrincipal.id === userId;
+  const esMiembro = proyecto.equipos.some(e => e.miembros.some(m => m.id === userId));
+
+  if (!esAdmin && !esPropietario && !esMiembro) {
+    throw new NotFoundException('No autorizado para ver este proyecto');
   }
+
+  return proyecto;
+}
+
 
   async encontrarPorId(id: number, userId: number) {
     const proyecto = await this.proyectosRepo.findOne({
@@ -201,6 +225,28 @@ export class ProyectosService {
 
   return { success: true, equipo };
 }
+
+async agregarColaboradorPorUsuario(
+  proyectoId: number,
+  usuarioUnico: string,
+  rol: RolEquipo = RolEquipo.COLABORADOR
+) {
+  const proyecto = await this.proyectosRepo.findOne({ where: { id: proyectoId } });
+  if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
+
+  const usuario = await this.usuarioRepo.findOne({ where: { usuario: usuarioUnico } });
+  if (!usuario) throw new NotFoundException('Usuario no encontrado');
+
+  const equipo = this.equipoRepo.create({
+    proyecto,
+    miembros: [usuario],
+    rolEnEquipo: rol,
+  });
+  await this.equipoRepo.save(equipo);
+
+  return { success: true, equipo };
+}
+
 
 async obtenerProyectosCompartidos(userId: number) {
   return this.equipoRepo.find({

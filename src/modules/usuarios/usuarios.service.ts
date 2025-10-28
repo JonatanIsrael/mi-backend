@@ -109,7 +109,7 @@ export class UsuariosService {
   }
 
   async cambiarRol(id: number, nuevoRol: string): Promise<Usuario> {
-    const rolesPermitidos = ['administrador', 'investigador', 'alumno'];
+    const rolesPermitidos = ['administrador', 'maestro', 'alumno'];
     if (!rolesPermitidos.includes(nuevoRol)) {
       throw new BadRequestException('Rol no válido');
     }
