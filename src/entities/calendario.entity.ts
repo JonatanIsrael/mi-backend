@@ -1,6 +1,14 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
 import { Proyecto } from './proyecto.entity';
 
+export enum TipoEvento {
+  GENERAL = 'general',
+  MEDICION = 'medicion',
+  ALERTA = 'alerta',
+  REUNION = 'reunion',
+  OBSERVACION = 'observacion'
+}
+
 @Entity('calendarios')
 export class Calendario {
   @PrimaryGeneratedColumn()
@@ -14,4 +22,7 @@ export class Calendario {
 
   @Column({ type: 'text' })
   descripcion!: string;
+
+  @Column({ type: 'enum', enum: TipoEvento, default: TipoEvento.GENERAL })
+  tipoEvento!: TipoEvento;
 }

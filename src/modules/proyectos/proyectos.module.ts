@@ -12,6 +12,7 @@ import { ProyectosController } from './proyectos.controller';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { AuthModule } from '../../auth/auth.module';
 import { Usuario } from 'entities/usuario.entity';
+import { Calendario } from 'entities/calendario.entity';
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { Usuario } from 'entities/usuario.entity';
       Repeticion,
       Muestra,
       Lectura,
-      Equipo, 
+      Equipo,
+      Calendario,
       Usuario// 🔹 Aquí se incluye para que NestJS pueda inyectar su repositorio
     ]),
     forwardRef(() => UsuariosModule),

@@ -28,11 +28,11 @@ export class Proyecto {
   @ManyToOne(() => Usuario, (u) => u.proyectos, { onDelete: 'CASCADE' })
   investigadorPrincipal!: Usuario;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-  fechaInicio!: Date;  // <- se asignará automáticamente
+  @Column({ type: 'date', nullable: true})
+  fechaInicio!: Date | null;
 
   @Column({ type: 'date', nullable: true })
-  fechaFin!: Date;
+  fechaFin!: Date | null;
 
   @Column({ type: 'enum', enum: TipoDisenio })
   tipoDisenio!: TipoDisenio;

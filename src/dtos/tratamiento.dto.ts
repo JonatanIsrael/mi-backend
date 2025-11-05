@@ -1,10 +1,9 @@
 export class CrearTratamientoDto {
   nombre!: string;
-  descripcion?: string;
-  esTestigo?: boolean;
   variableIndependiente!: string;
-  valor!: number;
-  unidad!: string;
-  id_proyecto?: number; // opcional si creas tratamiento independiente
+  factor!: string;
+  nivel!: string;
+  id_proyecto?: number;
+  numeroRepeticiones!: number;           // nueva propiedad
+  numeroMuestrasPorRepeticion!: number; // nueva propiedad
 }
-

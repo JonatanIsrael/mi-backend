@@ -13,20 +13,14 @@ export class Tratamiento {
   @Column({ length: 255 })
   nombre!: string;
 
-  @Column({ type: 'text', nullable: true })
-  descripcion!: string;
-
-  @Column({ type: 'boolean', default: false })
-  esTestigo!: boolean;
-
   @Column({ length: 255 })
   variableIndependiente!: string;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  valor!: number;
+  @Column({ length: 50})
+  factor!: string;
 
   @Column({ length: 50 })
-  unidad!: string;
+  nivel!: string;
 
   @OneToMany(() => Repeticion, (r) => r.tratamiento)
   repeticiones!: Repeticion[];

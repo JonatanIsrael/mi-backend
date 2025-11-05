@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Proyecto, TipoDisenio } from '../../entities/proyecto.entity';
@@ -10,7 +10,8 @@ import { Muestra } from '../../entities/muestra.entity';
 import { Lectura } from '../../entities/lectura.entity';
 import { Equipo, RolEquipo } from '../../entities/equipo.entity';
 import { UsuariosService } from '../usuarios/usuarios.service';
-import { Usuario } from '../../entities/usuario.entity'; 
+import { Usuario } from '../../entities/usuario.entity';
+import { Calendario, TipoEvento } from '../../entities/calendario.entity';
 import * as ExcelJS from 'exceljs';
 
 @Injectable()
@@ -23,112 +24,259 @@ export class ProyectosService {
     @InjectRepository(Muestra) private readonly muestraRepo: Repository<Muestra>,
     @InjectRepository(Lectura) private readonly lecturaRepo: Repository<Lectura>,
     @InjectRepository(Equipo) private readonly equipoRepo: Repository<Equipo>,
-    @InjectRepository(Usuario) private readonly usuarioRepo: Repository<Usuario>, // 🔹 Inyección agregada
+    @InjectRepository(Calendario) private readonly calendarioRepo: Repository<Calendario>,
+    @InjectRepository(Usuario) private readonly usuarioRepo: Repository<Usuario>,
     private readonly usuariosService: UsuariosService,
   ) {}
 
-  // 🔹 TODAS TUS FUNCIONES ORIGINALES
-  async crearProyectoCompleto(dto: CrearProyectoCompletoDto) {
-    const usuario = await this.usuariosService.encontrarPorId(dto.userId);
-    const proyecto = this.proyectosRepo.create({
-      nombre: dto.nombre,
-      descripcion: dto.descripcion ?? '',
-      tipoDisenio: dto.tipo_disenio as TipoDisenio,
-      investigadorPrincipal: usuario,
+  // ------------------------------------------------
+  // Crear proyecto completo (variables, tratamientos, repeticiones, muestras, lecturas, calendario)
+  // ------------------------------------------------
+
+  async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) {
+  if (!dto.nombre) throw new Error('El proyecto debe tener un nombre');
+  if (!dto.fechaInicio || !dto.fechaFin) throw new Error('Debe proporcionar fechaInicio y fechaFin');
+
+  if (!dto.fechasObservacion || dto.fechasObservacion.length === 0)
+    throw new Error('Se deben proporcionar las fechas de observación desde el front');
+
+  // 🔹 Obtener usuario investigador
+  const investigador = await this.usuariosService.encontrarPorId(dto.userId);
+  if (!investigador) throw new Error('Usuario no encontrado');
+
+  // 1️⃣ Crear proyecto
+  const proyecto = this.proyectosRepo.create({
+    nombre: dto.nombre,
+    descripcion: dto.descripcion,
+    fechaInicio: new Date(dto.fechaInicio),
+    fechaFin: new Date(dto.fechaFin),
+    investigadorPrincipal: investigador,
+  });
+  const proyectoGuardado = await this.proyectosRepo.save(proyecto);
+
+  // 2️⃣ Crear variables dependientes
+  const variablesGuardadas: VariableDependiente[] = [];
+  for (const v of dto.variablesDependientes || []) {
+    const variable = this.variableRepo.create({
+      nombreCompleto: v.nombreCompleto,
+      clave: v.clave,
+      unidad: v.unidad,
+      proyecto: proyectoGuardado,
     });
-    await this.proyectosRepo.save(proyecto);
+    variablesGuardadas.push(await this.variableRepo.save(variable));
+  }
 
-    const variablesGuardadas: VariableDependiente[] = [];
-    for (const v of dto.variablesDependientes) {
-      const variable = this.variableRepo.create({ ...v, proyecto });
-      await this.variableRepo.save(variable);
-      variablesGuardadas.push(variable);
-    }
+  // 3️⃣ Crear tratamientos + repeticiones + muestras + lecturas
+  for (const t of dto.tratamientos || []) {
+    const tratamiento = this.tratamientoRepo.create({
+      nombre: t.nombre,
+      variableIndependiente: t.variableIndependiente,
+      factor: t.factor,
+      nivel: t.nivel,
+      proyecto: proyectoGuardado,
+    });
+    const tratamientoGuardado = await this.tratamientoRepo.save(tratamiento);
 
-    const tratamientosGuardados: Tratamiento[] = [];
-    for (const t of dto.tratamientos) {
-      const tratamiento = this.tratamientoRepo.create({ ...t, proyecto });
-      await this.tratamientoRepo.save(tratamiento);
-      tratamientosGuardados.push(tratamiento);
+    const numeroRepeticiones = dto.numRepeticiones || 1;
+    const numeroMuestras = dto.numMuestras || 1;
 
-      for (let i = 1; i <= dto.numRepeticiones; i++) {
-        const repeticion = this.repeticionRepo.create({ tratamiento, numero: i });
-        await this.repeticionRepo.save(repeticion);
+    for (let r = 1; r <= numeroRepeticiones; r++) {
+      const repeticion = this.repeticionRepo.create({
+        tratamiento: tratamientoGuardado,
+        numero: r,
+      });
+      const repeticionGuardada = await this.repeticionRepo.save(repeticion);
 
-        const numMuestras = dto.numMuestras && dto.numMuestras > 0 ? dto.numMuestras : 1;
-        for (let j = 1; j <= numMuestras; j++) {
-          const muestra = this.muestraRepo.create({
-            repeticion,
-            numero: j,
-            codigo: `T${tratamiento.id}-R${i}-M${j}`,
-          });
-          await this.muestraRepo.save(muestra);
+      for (let m = 1; m <= numeroMuestras; m++) {
+        const muestraGuardada = await this.muestraRepo.save(
+          this.muestraRepo.create({
+            repeticion: repeticionGuardada,
+            numero: m,
+            codigo: `T${tratamientoGuardado.id}-R${r}-M${m}`,
+          })
+        );
 
-          for (const v of variablesGuardadas) {
+        // 🔹 Crear lecturas para cada muestra, variable y fecha de observación
+        if (!dto.fechasObservacion || dto.fechasObservacion.length === 0) {
+          console.warn('⚠️ No hay fechasObservacion en el DTO');
+        } else {
+          console.log(`📅 Fechas recibidas: ${dto.fechasObservacion.length}`, dto.fechasObservacion);
+        }
+
+        for (const variable of variablesGuardadas) {
+          for (const fechaStr of dto.fechasObservacion || []) {
+            const fecha = new Date(fechaStr);
+            if (isNaN(fecha.getTime())) {
+              console.warn('❌ Fecha inválida:', fechaStr);
+              continue;
+            }
+
             const lectura = this.lecturaRepo.create({
-              muestra,
-              variableDependiente: v,
+              muestra: muestraGuardada,
+              variableDependiente: variable,
               valor: 0,
-              fechaLectura: new Date(),
+              fechaLectura: fecha,
             });
+
             await this.lecturaRepo.save(lectura);
+            console.log(`✅ Lectura creada para muestra ${muestraGuardada.codigo}, fecha ${fecha.toISOString()}`);
           }
         }
       }
     }
-
-    return { proyecto, tratamientos: tratamientosGuardados, variables: variablesGuardadas };
   }
 
- async obtenerProyectosConLecturas(proyectoId: number, userId: number) {
-  // Primero obtenemos al usuario autenticado
-  const usuario = await this.usuariosService.encontrarPorId(userId);
+  // ✅ Crear eventos de calendario para cada fecha de observación
+  for (const fecha of dto.fechasObservacion) {
+    const evento = this.calendarioRepo.create({
+      proyecto: proyectoGuardado,
+      fecha: new Date(fecha),
+      descripcion: `Observación programada para el proyecto "${dto.nombre}"`,
+      tipoEvento: TipoEvento.OBSERVACION,
+    });
+    await this.calendarioRepo.save(evento);
+  }
 
-  // Verificamos si es admin
+  // 🔹 Devolver proyecto completo con relaciones
+  return this.proyectosRepo.findOne({
+    where: { id: proyectoGuardado.id },
+    relations: [
+      'investigadorPrincipal',
+      'variablesDependientes',
+      'tratamientos',
+      'tratamientos.repeticiones',
+      'tratamientos.repeticiones.muestras',
+      'tratamientos.repeticiones.muestras.lecturas',
+      'tratamientos.repeticiones.muestras.lecturas.variableDependiente',
+      'calendarios',
+    ],
+  });
+}
+
+
+  // ------------------------------------------------
+  // Obtener proyecto con lecturas (limpio) y verificar acceso (admin/propietario/miembro)
+  // ------------------------------------------------
+  async obtenerProyectosConLecturas(proyectoId: number, userId: number) {
+  const usuario = await this.usuariosService.encontrarPorId(userId);
+  if (!usuario) throw new NotFoundException('Usuario no encontrado');
   const esAdmin = usuario.rol === 'administrador';
 
-  // Buscamos el proyecto, con todas sus relaciones
   const proyecto = await this.proyectosRepo.findOne({
     where: { id: proyectoId },
     relations: [
       'investigadorPrincipal',
       'equipos',
       'equipos.miembros',
+      'variablesDependientes',
       'tratamientos',
       'tratamientos.repeticiones',
       'tratamientos.repeticiones.muestras',
       'tratamientos.repeticiones.muestras.lecturas',
       'tratamientos.repeticiones.muestras.lecturas.variableDependiente',
-      'variablesDependientes',
+      'calendarios',
     ],
   });
 
+console.log('📥 Proyecto crudo desde la BD:', JSON.stringify(proyecto, null, 2));
+
+
   if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
 
-  // Permitir acceso si:
-  // 1. Es admin
-  // 2. Es el investigador principal
-  // 3. Está en el equipo del proyecto
-  const esPropietario = proyecto.investigadorPrincipal.id === userId;
-  const esMiembro = proyecto.equipos.some(e => e.miembros.some(m => m.id === userId));
+  const esPropietario = proyecto.investigadorPrincipal?.id === userId;
+  const esMiembro = proyecto.equipos?.some(e => e.miembros?.some(m => m.id === userId)) ?? false;
 
   if (!esAdmin && !esPropietario && !esMiembro) {
-    throw new NotFoundException('No autorizado para ver este proyecto');
+    throw new ForbiddenException('No autorizado para ver este proyecto');
   }
 
-  return proyecto;
+  const proyectoLimpio: any = {
+    id: proyecto.id,
+    nombre: proyecto.nombre,
+    descripcion: proyecto.descripcion,
+    fechaInicio: proyecto.fechaInicio,
+    fechaFin: proyecto.fechaFin,
+    tipoDisenio: proyecto.tipoDisenio,
+    variablesDependientes: (proyecto.variablesDependientes || []).map((v) => ({
+      id: v.id,
+      nombreCompleto: v.nombreCompleto,
+      clave: v.clave,
+      unidad: v.unidad,
+    })),
+    calendarios: (proyecto.calendarios || []).map(c => ({
+      id: c.id,
+      fecha: c.fecha,
+      descripcion: c.descripcion,
+      tipoEvento: c.tipoEvento,
+    })),
+    tratamientos: [],
+  };
+
+  for (const t of proyecto.tratamientos || []) {
+    const tClean: any = {
+      id: t.id,
+      nombre: t.nombre,
+      variableIndependiente: t.variableIndependiente,
+      factor: t.factor,
+      nivel: t.nivel,
+      repeticiones: [],
+    };
+
+    for (const r of t.repeticiones || []) {
+      const rClean: any = {
+        id: r.id,
+        numero: r.numero,
+        muestras: [],
+      };
+
+      for (const m of r.muestras || []) {
+        const mClean: any = {
+          id: m.id,
+          numero: m.numero,
+          codigo: m.codigo,
+          lecturas: [],
+        };
+
+        for (const l of m.lecturas || []) {
+          mClean.lecturas.push({
+            id: l.id,
+            valor: Number(l.valor),
+            fechaLectura: l.fechaLectura,
+            variableDependiente: {
+              id: l.variableDependiente?.id,
+              clave: l.variableDependiente?.clave,
+              nombreCompleto: l.variableDependiente?.nombreCompleto,
+              unidad: l.variableDependiente?.unidad,
+            },
+          });
+        }
+
+        rClean.muestras.push(mClean);
+      }
+      tClean.repeticiones.push(rClean);
+    }
+    proyectoLimpio.tratamientos.push(tClean);
+  }
+
+  // 🔹 Tipar las funciones flatMap para evitar errores TS7006
+  const totalLecturas = (proyectoLimpio.tratamientos as any[])
+    .flatMap((t: any) => t.repeticiones)
+    .flatMap((r: any) => r.muestras)
+    .flatMap((m: any) => m.lecturas).length;
+
+  console.log(`✅ Proyecto ${proyecto.nombre} con ${totalLecturas} lecturas cargadas`);
+
+  console.log(
+  '🔍 ProyectoLimpio final que se envía al frontend:',
+  JSON.stringify(proyectoLimpio, null, 2)
+);
+
+  return proyectoLimpio;
 }
 
-
-  async encontrarPorId(id: number, userId: number) {
-    const proyecto = await this.proyectosRepo.findOne({
-      where: { id, investigadorPrincipal: { id: userId } },
-      relations: ['investigadorPrincipal'],
-    });
-    if (!proyecto) throw new NotFoundException(`Proyecto con ID ${id} no encontrado`);
-    return proyecto;
-  }
-
+  // ------------------------------------------------
+  // Actualizar varias lecturas
+  // ------------------------------------------------
   async actualizarLecturas(lecturas: { id: number; valor: number }[]) {
     for (const l of lecturas) {
       const lectura = await this.lecturaRepo.findOne({ where: { id: l.id } });
@@ -149,6 +297,9 @@ export class ProyectosService {
     return { success: true };
   }
 
+  // ------------------------------------------------
+  // Otros métodos utilitarios (listados, export)
+  // ------------------------------------------------
   async obtenerTodos() {
     return this.proyectosRepo.find({ relations: ['investigadorPrincipal'] });
   }
@@ -165,8 +316,10 @@ export class ProyectosService {
     const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Proyecto');
+
     const header = ['Tratamiento', 'Repetición', 'Muestra', ...proyecto.variablesDependientes.map((v: any) => v.clave)];
     sheet.addRow(header);
+
     proyecto.tratamientos.forEach((t: any) => {
       t.repeticiones.forEach((r: any) => {
         r.muestras.forEach((m: any) => {
@@ -175,19 +328,22 @@ export class ProyectosService {
             r.numero,
             m.numero,
             ...proyecto.variablesDependientes.map((v: any) => {
-              const lectura = m.lecturas.find((l: any) => l.variableDependiente.id === v.id);
-              return lectura ? lectura.valor : 0;
+              const lect = (m.lecturas || []).find((lx: any) => lx.variableDependiente?.id === v.id);
+              return lect ? lect.valor : 0;
             }),
           ];
           sheet.addRow(row);
         });
       });
     });
+
     const buffer = await workbook.xlsx.writeBuffer();
     return Buffer.from(buffer);
   }
 
-  // 🔹 NUEVO: Agregar colaborador / compartir proyecto
+  // ------------------------------------------------
+  // Colaboradores y permisos
+  // ------------------------------------------------
   async agregarColaborador(proyectoId: number, usuarioId: number, rol: RolEquipo = RolEquipo.COLABORADOR) {
     const proyecto = await this.proyectosRepo.findOne({ where: { id: proyectoId } });
     if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
@@ -201,134 +357,117 @@ export class ProyectosService {
       rolEnEquipo: rol,
     });
     await this.equipoRepo.save(equipo);
-
     return { success: true, equipo };
   }
 
-  async agregarColaboradorPorCorreo(
-  proyectoId: number,
-  correo: string,
-  rol: RolEquipo = RolEquipo.COLABORADOR,
-) {
-  const proyecto = await this.proyectosRepo.findOne({ where: { id: proyectoId } });
-  if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
+  async agregarColaboradorPorCorreo(proyectoId: number, correo: string, rol: RolEquipo = RolEquipo.COLABORADOR) {
+    const proyecto = await this.proyectosRepo.findOne({ where: { id: proyectoId } });
+    if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
 
-  const usuario = await this.usuariosService.encontrarPorCorreo(correo);
-  if (!usuario) throw new NotFoundException('Usuario no encontrado');
+    const usuario = await this.usuariosService.encontrarPorCorreo(correo);
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
 
-  const equipo = this.equipoRepo.create({
-    proyecto,
-    miembros: [usuario],
-    rolEnEquipo: rol,
-  });
-  await this.equipoRepo.save(equipo);
+    const equipo = this.equipoRepo.create({
+      proyecto,
+      miembros: [usuario],
+      rolEnEquipo: rol,
+    });
+    await this.equipoRepo.save(equipo);
+    return { success: true, equipo };
+  }
 
-  return { success: true, equipo };
-}
+  async agregarColaboradorPorUsuario(proyectoId: number, usuarioUnico: string, rol: RolEquipo = RolEquipo.COLABORADOR) {
+    const proyecto = await this.proyectosRepo.findOne({ where: { id: proyectoId } });
+    if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
 
-async agregarColaboradorPorUsuario(
-  proyectoId: number,
-  usuarioUnico: string,
-  rol: RolEquipo = RolEquipo.COLABORADOR
-) {
-  const proyecto = await this.proyectosRepo.findOne({ where: { id: proyectoId } });
-  if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
+    const usuario = await this.usuarioRepo.findOne({ where: { usuario: usuarioUnico } });
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
 
-  const usuario = await this.usuarioRepo.findOne({ where: { usuario: usuarioUnico } });
-  if (!usuario) throw new NotFoundException('Usuario no encontrado');
+    const equipo = this.equipoRepo.create({
+      proyecto,
+      miembros: [usuario],
+      rolEnEquipo: rol,
+    });
+    await this.equipoRepo.save(equipo);
+    return { success: true, equipo };
+  }
 
-  const equipo = this.equipoRepo.create({
-    proyecto,
-    miembros: [usuario],
-    rolEnEquipo: rol,
-  });
-  await this.equipoRepo.save(equipo);
+  async obtenerProyectosCompartidos(userId: number) {
+    return this.equipoRepo
+      .find({
+        where: { miembros: { id: userId } },
+        relations: ['proyecto', 'proyecto.investigadorPrincipal'],
+      })
+      .then((equipos) => equipos.map((e) => e.proyecto));
+  }
 
-  return { success: true, equipo };
-}
+  async obtenerProyectosPorUsuario(actualUserId: number, userId?: number) {
+    const usuario = await this.usuariosService.encontrarPorId(actualUserId);
+    if (!usuario) throw new NotFoundException('Usuario no encontrado');
 
-
-async obtenerProyectosCompartidos(userId: number) {
-  return this.equipoRepo.find({
-    where: { miembros: { id: userId } },
-    relations: ['proyecto', 'proyecto.investigadorPrincipal'],
-  }).then(equipos => equipos.map(e => e.proyecto))
-}
-
-async obtenerProyectosPorUsuario(actualUserId: number, userId?: number) {
-  const usuario = await this.usuariosService.encontrarPorId(actualUserId);
-  if (!usuario) throw new NotFoundException('Usuario no encontrado');
-
-  const esAdmin = usuario.rol === 'administrador';
-
-  if (esAdmin) {
-    // Admin puede ver todos los proyectos o de un usuario específico
-    if (userId) {
+    const esAdmin = usuario.rol === 'administrador';
+    if (esAdmin) {
+      if (userId) {
+        return this.proyectosRepo.find({
+          where: { investigadorPrincipal: { id: userId } },
+          relations: ['investigadorPrincipal', 'equipos'],
+        });
+      }
       return this.proyectosRepo.find({
-        where: { investigadorPrincipal: { id: userId } },
         relations: ['investigadorPrincipal', 'equipos'],
       });
     }
+
     return this.proyectosRepo.find({
-      relations: ['investigadorPrincipal', 'equipos'],
+      where: { investigadorPrincipal: { id: actualUserId } },
+      relations: ['equipos'],
     });
   }
 
-  // Usuario normal: devuelve solo sus proyectos
-  return this.proyectosRepo.find({
-    where: { investigadorPrincipal: { id: actualUserId } },
-    relations: ['equipos'],
-  });
-}
+  async puedeEditarProyecto(userId: number, proyectoId: number) {
+    const proyecto = await this.proyectosRepo.findOne({
+      where: { id: proyectoId },
+      relations: ['investigadorPrincipal', 'equipos', 'equipos.miembros'],
+    });
+    if (!proyecto) return false;
+    if (proyecto.investigadorPrincipal.id === userId) return true;
+    const enEquipo = proyecto.equipos.some(e => e.miembros.some(m => m.id === userId && e.rolEnEquipo === RolEquipo.RESPONSABLE));
+    return enEquipo;
+  }
 
-async puedeEditarProyecto(userId: number, proyectoId: number) {
-  const proyecto = await this.proyectosRepo.findOne({
-    where: { id: proyectoId },
-    relations: ['investigadorPrincipal', 'equipos', 'equipos.miembros'],
-  });
-  if (!proyecto) return false;
+  async puedeComentarProyecto(userId: number, proyectoId: number) {
+    const proyecto = await this.proyectosRepo.findOne({
+      where: { id: proyectoId },
+      relations: ['investigadorPrincipal', 'equipos', 'equipos.miembros'],
+    });
+    if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
 
-  if (proyecto.investigadorPrincipal.id === userId) return true;
+    const usuario = await this.usuariosService.encontrarPorId(userId);
+    const esAdmin = usuario.rol === 'administrador';
+    if (esAdmin) return true;
+    if (proyecto.investigadorPrincipal.id === userId) return true;
+    const esMiembro = proyecto.equipos.some(e => e.miembros.some(m => m.id === userId));
+    return esMiembro;
+  }
 
-  const enEquipo = proyecto.equipos.some(e => 
-    e.miembros.some(m => m.id === userId && e.rolEnEquipo === RolEquipo.RESPONSABLE)
-  );
-  return enEquipo;
-}
+  async actualizar(id: number, body: Partial<Proyecto>, userId: number) {
+    const proyecto = await this.encontrarPorId(id, userId);
+    Object.assign(proyecto, body);
+    return this.proyectosRepo.save(proyecto);
+  }
 
-async puedeComentarProyecto(userId: number, proyectoId: number) {
-  const proyecto = await this.proyectosRepo.findOne({
-    where: { id: proyectoId },
-    relations: ['investigadorPrincipal', 'equipos', 'equipos.miembros'],
-  });
-  if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
+  async encontrarPorId(id: number, userId: number) {
+    const proyecto = await this.proyectosRepo.findOne({
+      where: { id, investigadorPrincipal: { id: userId } },
+      relations: ['investigadorPrincipal'],
+    });
+    if (!proyecto) throw new NotFoundException(`Proyecto con ID ${id} no encontrado`);
+    return proyecto;
+  }
 
-  const usuario = await this.usuariosService.encontrarPorId(userId);
-  const esAdmin = usuario.rol === 'administrador';
-
-  if (esAdmin) return true; // Admin puede ver/comentar
-
-  // Propietario puede comentar
-  if (proyecto.investigadorPrincipal.id === userId) return true;
-
-  // Colaborador puede comentar
-  const esMiembro = proyecto.equipos.some(e =>
-    e.miembros.some(m => m.id === userId)
-  );
-  return esMiembro;
-}
-
-async actualizar(id: number, body: Partial<Proyecto>, userId: number) {
-  const proyecto = await this.encontrarPorId(id, userId);
-  Object.assign(proyecto, body);
-  return this.proyectosRepo.save(proyecto);
-}
-
-async obtenerUsuariosConProyectos() {
-  return this.usuarioRepo.find({
-    relations: ['proyectos'], // así traes los proyectos de cada usuario
-  });
-}
-
-
+  async obtenerUsuariosConProyectos() {
+    return this.usuarioRepo.find({
+      relations: ['proyectos'],
+    });
+  }
 }

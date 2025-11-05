@@ -16,10 +16,18 @@ export class ActualizarProyectoDto {
   tipo_disenio?: string;
 }
 
-export class CrearProyectoCompletoDto extends CrearProyectoDto {
+export class CrearProyectoCompletoDto {
   userId!: number;
-  tratamientos!: CrearTratamientoDto[];
+  nombre!: string;
+  descripcion?: string;
+  tipo_disenio!: string;
   variablesDependientes!: CrearVariableDto[];
+  tratamientos!: CrearTratamientoDto[];
   numRepeticiones!: number;
-  numMuestras?: number; // opcional
+  numMuestras!: number;
+  fechaInicio!: string;
+  fechaFin!: string;
+  frecuenciaDias?: number;
+  fechasObservacion!: string[];
+  lecturas!: any[];
 }
