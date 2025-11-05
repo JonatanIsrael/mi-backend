@@ -312,34 +312,51 @@ console.log('📥 Proyecto crudo desde la BD:', JSON.stringify(proyecto, null, 2
     });
   }
 
-  async exportarProyectoExcel(proyectoId: number, userId: number): Promise<Buffer> {
-    const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Proyecto');
+async exportarProyectoExcel(proyectoId: number, userId: number): Promise<Buffer> {
+  const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Proyecto');
 
-    const header = ['Tratamiento', 'Repetición', 'Muestra', ...proyecto.variablesDependientes.map((v: any) => v.clave)];
-    sheet.addRow(header);
+  // Encabezados: Tratamiento | Repetición | Muestra | Variables
+  const header = ['Tratamiento', 'Repetición', 'Muestra', ...proyecto.variablesDependientes.map((v: any) => v.clave)];
+  sheet.addRow(header);
 
-    proyecto.tratamientos.forEach((t: any) => {
-      t.repeticiones.forEach((r: any) => {
-        r.muestras.forEach((m: any) => {
+  proyecto.tratamientos.forEach((t: any) => {
+    t.repeticiones.forEach((r: any) => {
+      r.muestras.forEach((m: any) => {
+        // Crear una fila por cada lectura de cada variable
+        // Para esto agrupamos lecturas por variable
+        const lecturasPorVariable: Record<number, number[]> = {};
+        proyecto.variablesDependientes.forEach((v: any) => {
+          lecturasPorVariable[v.id] = (m.lecturas || [])
+            .filter((l: any) => l.variableDependiente.id === v.id)
+            .map((l: any) => l.valor);
+        });
+
+        // Determinar cuántas filas necesitamos: la máxima cantidad de lecturas entre todas las variables
+        const maxFilas = Math.max(...Object.values(lecturasPorVariable).map(arr => arr.length));
+
+        for (let i = 0; i < maxFilas; i++) {
           const row = [
             t.nombre,
             r.numero,
             m.numero,
             ...proyecto.variablesDependientes.map((v: any) => {
-              const lect = (m.lecturas || []).find((lx: any) => lx.variableDependiente?.id === v.id);
-              return lect ? lect.valor : 0;
+              // Si no hay lectura en esta fila, dejamos 0
+              return lecturasPorVariable[v.id][i] ?? 0;
             }),
           ];
           sheet.addRow(row);
-        });
+        }
       });
     });
+  });
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    return Buffer.from(buffer);
-  }
+  const buffer = await workbook.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+
 
   // ------------------------------------------------
   // Colaboradores y permisos
