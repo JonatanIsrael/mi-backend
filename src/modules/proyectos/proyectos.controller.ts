@@ -91,29 +91,31 @@ export class ProyectosController {
 
       const workbook = new ExcelJS.Workbook();
       const sheet = workbook.addWorksheet('Proyecto');
-
-      const header = ['FechaRegistro','Tratamiento', 'Repetición', 'Muestra', ...proyecto.variablesDependientes.map((v: any) => v.clave)];
+      const header = ['FechaRegistro', 'Tratamiento', 'Repetición', 'Muestra', ...proyecto.variablesDependientes.map((v: any) => v.clave)];
       sheet.addRow(header);
 
-      // recorrer fechas + tratamientos para poblar filas (si usas fechas agrupadas, se puede adaptar)
-      // Aquí simplificamos y generamos filas por cada muestra basadas en la estructura limpia:
+      // Iterar sobre cada lectura individualmente
+      let rowCount = 0;
       proyecto.tratamientos.forEach((t: any) => {
         t.repeticiones.forEach((r: any) => {
           r.muestras.forEach((m: any) => {
-            const row = [
-              (m.lecturas && m.lecturas[0]) ? (m.lecturas[0].fechaLectura ? new Date(m.lecturas[0].fechaLectura).toISOString().split('T')[0] : '') : '',
-              t.nombre,
-              r.numero,
-              m.numero,
-              ...proyecto.variablesDependientes.map((v: any) => {
-                const lect = (m.lecturas || []).find((lx: any) => lx.variableDependiente?.id === v.id);
-                return lect ? lect.valor : 0;
-              }),
-            ];
-            sheet.addRow(row);
+            m.lecturas.forEach((lectura: any) => {
+              rowCount++;
+              const row = [
+                lectura.fechaLectura ? new Date(lectura.fechaLectura).toISOString().split('T')[0] : '',
+                t.nombre,
+                r.numero,
+                m.numero,
+                ...proyecto.variablesDependientes.map((v: any) => {
+                  return lectura.variableDependiente?.id === v.id ? lectura.valor : 0;
+                }),
+              ];
+              sheet.addRow(row);
+            });
           });
         });
       });
+      console.log('Filas generadas:', rowCount);
 
       const buffer = await workbook.xlsx.writeBuffer();
       res.set({
