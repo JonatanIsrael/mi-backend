@@ -96,30 +96,23 @@ export class ProyectosService {
           })
         );
 
-        // 🔹 Crear lecturas para cada muestra, variable y fecha de observación
-        if (!dto.fechasObservacion || dto.fechasObservacion.length === 0) {
-          console.warn('⚠️ No hay fechasObservacion en el DTO');
-        } else {
-          console.log(`📅 Fechas recibidas: ${dto.fechasObservacion.length}`, dto.fechasObservacion);
-        }
 
         for (const variable of variablesGuardadas) {
           for (const fechaStr of dto.fechasObservacion || []) {
             const fecha = new Date(fechaStr);
             if (isNaN(fecha.getTime())) {
-              console.warn('❌ Fecha inválida:', fechaStr);
               continue;
             }
 
             const lectura = this.lecturaRepo.create({
               muestra: muestraGuardada,
               variableDependiente: variable,
-              valor: 0,
-              fechaLectura: fecha,
+              valor: null,
+              fechaProgramada: fecha,
+              fechaRealizada: null,
             });
 
             await this.lecturaRepo.save(lectura);
-            console.log(`✅ Lectura creada para muestra ${muestraGuardada.codigo}, fecha ${fecha.toISOString()}`);
           }
         }
       }
@@ -177,8 +170,6 @@ export class ProyectosService {
       'calendarios',
     ],
   });
-
-console.log('📥 Proyecto crudo desde la BD:', JSON.stringify(proyecto, null, 2));
 
 
   if (!proyecto) throw new NotFoundException('Proyecto no encontrado');
@@ -241,7 +232,7 @@ console.log('📥 Proyecto crudo desde la BD:', JSON.stringify(proyecto, null, 2
           mClean.lecturas.push({
             id: l.id,
             valor: Number(l.valor),
-            fechaLectura: l.fechaLectura,
+            fechaLectura: l.fechaProgramada,
             variableDependiente: {
               id: l.variableDependiente?.id,
               clave: l.variableDependiente?.clave,
@@ -264,12 +255,6 @@ console.log('📥 Proyecto crudo desde la BD:', JSON.stringify(proyecto, null, 2
     .flatMap((r: any) => r.muestras)
     .flatMap((m: any) => m.lecturas).length;
 
-  console.log(`✅ Proyecto ${proyecto.nombre} con ${totalLecturas} lecturas cargadas`);
-
-  console.log(
-  '🔍 ProyectoLimpio final que se envía al frontend:',
-  JSON.stringify(proyectoLimpio, null, 2)
-);
 
   return proyectoLimpio;
 }
@@ -282,7 +267,7 @@ console.log('📥 Proyecto crudo desde la BD:', JSON.stringify(proyecto, null, 2
       const lectura = await this.lecturaRepo.findOne({ where: { id: l.id } });
       if (!lectura) throw new NotFoundException(`Lectura con id ${l.id} no encontrada`);
       lectura.valor = l.valor;
-      lectura.fechaLectura = new Date();
+      lectura.fechaRealizada = new Date();
       await this.lecturaRepo.save(lectura);
     }
     return { success: true };
@@ -292,7 +277,7 @@ console.log('📥 Proyecto crudo desde la BD:', JSON.stringify(proyecto, null, 2
     const lectura = await this.lecturaRepo.findOne({ where: { id } });
     if (!lectura) throw new NotFoundException(`Lectura con id ${id} no encontrada`);
     lectura.valor = valor;
-    lectura.fechaLectura = new Date();
+    lectura.fechaRealizada = new Date();
     await this.lecturaRepo.save(lectura);
     return { success: true };
   }

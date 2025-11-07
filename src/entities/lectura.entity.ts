@@ -14,11 +14,14 @@ export class Lectura {
   @ManyToOne(() => VariableDependiente, (v) => v.lecturas, { onDelete: 'CASCADE' })
   variableDependiente!: VariableDependiente;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
-  valor!: number;
+  @Column({ type: 'float', nullable: true})
+  valor!: number | null;
 
   @Column({ type: 'date' })
-  fechaLectura!: Date;
+  fechaProgramada!: Date;
+
+  @Column({type: 'timestamp', nullable: true})
+  fechaRealizada!: Date | null;
 
   @OneToMany(() => Observacion, (o) => o.lectura)
   observaciones!: Observacion[];

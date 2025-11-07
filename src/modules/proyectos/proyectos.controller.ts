@@ -115,7 +115,6 @@ export class ProyectosController {
           });
         });
       });
-      console.log('Filas generadas:', rowCount);
 
       const buffer = await workbook.xlsx.writeBuffer();
       res.set({

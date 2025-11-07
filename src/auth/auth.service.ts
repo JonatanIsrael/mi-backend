@@ -12,7 +12,6 @@ export class AuthService {
   ) {}
 
   async login(dto: LoginUsuarioDto) {
-    console.log('Login DTO recibido', dto);
     const user = await this.usuariosService.login(dto);
 
     const token = this.jwtService.sign({ id: user.id, rol: user.rol });
