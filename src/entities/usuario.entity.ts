@@ -3,6 +3,7 @@ import { Proyecto } from './proyecto.entity';
 import { Alerta } from './alerta.entity';
 import { Equipo } from './equipo.entity';
 import { Observacion } from './observacion.entity';
+import { Comentario } from './comentario.entity'; // CORRECTO
 
 
 export enum TipoUsuario{
@@ -55,4 +56,7 @@ export class Usuario {
 
   @OneToMany(() => Observacion, (o) => o.usuario)
   observaciones!: Observacion[];
+
+  @OneToMany (() => Comentario, (comentario) => comentario.usuario)
+  comentarios!: Comentario[];
 }

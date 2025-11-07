@@ -25,4 +25,7 @@ export class Calendario {
 
   @Column({ type: 'enum', enum: TipoEvento, default: TipoEvento.GENERAL })
   tipoEvento!: TipoEvento;
+
+  @Column({ default: false })
+  notificado!: boolean;
 }

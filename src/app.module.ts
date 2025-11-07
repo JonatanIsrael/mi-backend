@@ -1,8 +1,10 @@
+// src/app.module.ts
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule'; // ← YA ESTÁ
 
-// 🔹 Entities
+// Entities
 import { Usuario } from './entities/usuario.entity';
 import { Proyecto } from './entities/proyecto.entity';
 import { Equipo } from './entities/equipo.entity';
@@ -14,8 +16,9 @@ import { VariableDependiente } from './entities/variable-dependiente.entity';
 import { Calendario } from './entities/calendario.entity';
 import { Alerta } from './entities/alerta.entity';
 import { Observacion } from './entities/observacion.entity';
+import { Comentario } from './entities/comentario.entity';
 
-// 🔹 Modules
+// Modules
 import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './modules/usuarios/usuarios.module';
 import { ProyectosModule } from './modules/proyectos/proyectos.module';
@@ -31,31 +34,31 @@ import { ObservacionesModule } from './modules/observaciones/observaciones.modul
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }), // 🔹 Configuración global de variables de entorno
-TypeOrmModule.forRoot({
-  type: 'mysql',
-  host: process.env.DB_HOST || 'localhost',
-  port: parseInt(process.env.DB_PORT || '3306'),
-  username: process.env.DB_USER || 'root',
-  password: process.env.DB_PASS || '',
-  database: process.env.DB_NAME || 'fenologia',
-  entities: [
-    Usuario,
-    Proyecto,
-    Equipo,
-    Tratamiento,
-    Repeticion,
-    Muestra,
-    Lectura,
-    VariableDependiente,
-    Calendario,
-    Alerta,
-    Observacion,
-  ],
-  synchronize: true,
-}),
-
-    // 🔹 Módulos de la aplicación
+    ScheduleModule.forRoot(), // ← CRON ACTIVO
+    ConfigModule.forRoot({ isGlobal: true }),
+    TypeOrmModule.forRoot({
+      type: 'mysql',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '3306'),
+      username: process.env.DB_USER || 'root',
+      password: process.env.DB_PASS || '',
+      database: process.env.DB_NAME || 'fenologia',
+      entities: [
+        Usuario,
+        Proyecto,
+        Equipo,
+        Tratamiento,
+        Repeticion,
+        Muestra,
+        Lectura,
+        VariableDependiente,
+        Calendario,
+        Alerta,
+        Observacion,
+        Comentario,
+      ],
+      synchronize: true,
+    }),
     AuthModule,
     UsuariosModule,
     ProyectosModule,

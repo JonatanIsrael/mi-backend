@@ -17,10 +17,15 @@ import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
 import { CrearProyectoCompletoDto } from '../../dtos/proyecto.dto';
 import { RolEquipo } from '../../entities/equipo.entity';
 import * as ExcelJS from 'exceljs';
+import { ComentariosService } from './comentarios.service';
+import { CrearComentarioDto } from '../../dtos/comentario.dto'; // CORREGIDO
 
 @Controller('proyectos')
 export class ProyectosController {
-  constructor(private readonly proyectosService: ProyectosService) {}
+  constructor(
+    private readonly proyectosService: ProyectosService,
+    private readonly comentariosService: ComentariosService, // NUEVO 
+) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -32,7 +37,31 @@ export class ProyectosController {
       const userId = req.user?.id;
       if (!userId) throw new HttpException('No autorizado', HttpStatus.UNAUTHORIZED);
 
-      const data = await this.proyectosService.crearProyectoCompleto({ ...dto, userId });
+      // NORMALIZAR FECHAS: DD/MM/YYYY → YYYY-MM-DD, y compensar desfase +1 día
+      const parseFecha = (fechaStr: string): string => {
+        let date: Date;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(fechaStr)) {
+          const [y, m, d] = fechaStr.split('-').map(Number);
+          date = new Date(y, m - 1, d);
+        } else {
+          const [d, m, y] = fechaStr.split('/').map(Number);
+          date = new Date(y, m - 1, d);
+        }
+        if (isNaN(date.getTime())) throw new Error('Formato de fecha inválido');
+        date.setDate(date.getDate() + 1); // Compensar desfase de zona horaria
+        const y = date.getFullYear();
+        const mStr = String(date.getMonth() + 1).padStart(2, '0');
+        const dStr = String(date.getDate()).padStart(2, '0');
+        return `${y}-${mStr}-${dStr}`;
+      };
+
+      const normalizedDto = {
+        ...dto,
+        fechaInicio: parseFecha(dto.fechaInicio),
+        fechaFin: parseFecha(dto.fechaFin),
+      };
+
+      const data = await this.proyectosService.crearProyectoCompleto({ ...normalizedDto, userId });
       return { success: true, proyecto: data };
     } catch (error: any) {
       throw new HttpException(
@@ -94,23 +123,54 @@ export class ProyectosController {
       const header = ['FechaRegistro', 'Tratamiento', 'Repetición', 'Muestra', ...proyecto.variablesDependientes.map((v: any) => v.clave)];
       sheet.addRow(header);
 
-      // Iterar sobre cada lectura individualmente
-      let rowCount = 0;
+      // PARSEAR FECHAS DE DB A LOCAL
+      const parseDBDate = (dateStr: string): Date => {
+        const [year, month, day] = dateStr.split('-').map(Number);
+        return new Date(year, month - 1, day);
+      };
+
+      const startDate = parseDBDate(proyecto.fechaInicio);
+      const endDate = parseDBDate(proyecto.fechaFin);
+      const intervalo = 7;
+
+      const dates: Date[] = [];
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + intervalo)) {
+        dates.push(new Date(d));
+      }
+
+      // FORMATEAR LOCAL
+      const formatLocalDate = (date: Date): string => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      };
+
+      const datesAreEqual = (date1: Date, date2: Date): boolean => {
+        return formatLocalDate(date1) === formatLocalDate(date2);
+      };
+
       proyecto.tratamientos.forEach((t: any) => {
         t.repeticiones.forEach((r: any) => {
           r.muestras.forEach((m: any) => {
-            m.lecturas.forEach((lectura: any) => {
-              rowCount++;
-              const row = [
-                lectura.fechaLectura ? new Date(lectura.fechaLectura).toISOString().split('T')[0] : '',
+            dates.forEach((date) => {
+              const fechaRegistro = formatLocalDate(date);
+              const rowData = [
+                fechaRegistro,
                 t.nombre,
                 r.numero,
                 m.numero,
                 ...proyecto.variablesDependientes.map((v: any) => {
-                  return lectura.variableDependiente?.id === v.id ? lectura.valor : 0;
+                  const lectura = m.lecturas.find((l: any) => {
+                    if (!l.fechaLectura) return false;
+                    const lecturaDateStr = new Date(l.fechaLectura).toISOString().split('T')[0];
+                    const lecturaDate = parseDBDate(lecturaDateStr);
+                    return datesAreEqual(lecturaDate, date) && l.variableDependiente?.id === v.id;
+                  });
+                  return lectura ? lectura.valor : 0;
                 }),
               ];
-              sheet.addRow(row);
+              sheet.addRow(rowData);
             });
           });
         });
@@ -131,7 +191,6 @@ export class ProyectosController {
     }
   }
 
-  // Compartir proyecto (por correo o usuario)
   @Post(':id/compartir')
   @UseGuards(JwtAuthGuard)
   async compartirProyecto(
@@ -155,6 +214,49 @@ export class ProyectosController {
 
     return { success: true, equipo };
   }
+
+// === RUTAS DE COMENTARIOS ===
+@Post(':id/comentarios')
+@UseGuards(JwtAuthGuard)
+async crearComentario(
+  @Param('id') proyectoId: string,
+  @Body() dto: CrearComentarioDto,
+  @Request() req: ExpressRequest & { user: { id: number } },
+) {
+  try {
+    const comentario = await this.comentariosService.crearComentario(
+      +proyectoId,
+      req.user.id,
+      dto,
+    );
+    return { success: true, comentario };
+  } catch (error: any) {
+    throw new HttpException(
+      error.message || 'Error al crear comentario',
+      error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+}
+
+@Get(':id/comentarios')
+@UseGuards(JwtAuthGuard)
+async obtenerComentariosProyecto(
+  @Param('id') proyectoId: string,
+  @Request() req: ExpressRequest & { user: { id: number } },
+) {
+  try {
+    const comentarios = await this.comentariosService.obtenerComentarios(
+      +proyectoId,
+      req.user.id,
+    );
+    return { success: true, comentarios };
+  } catch (error: any) {
+    throw new HttpException(
+      error.message || 'Error al obtener comentarios',
+      error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+}
 
   @Get('compartidos')
   @UseGuards(JwtAuthGuard)

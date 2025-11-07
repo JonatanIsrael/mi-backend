@@ -11,8 +11,11 @@ import { ProyectosService } from './proyectos.service';
 import { ProyectosController } from './proyectos.controller';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { AuthModule } from '../../auth/auth.module';
-import { Usuario } from 'entities/usuario.entity';
-import { Calendario } from 'entities/calendario.entity';
+import { Usuario } from '../../entities/usuario.entity';
+import { Calendario } from '../../entities/calendario.entity';
+import { Comentario } from '../../entities/comentario.entity'; // 2 niveles arriba         // NUEVO
+import { ComentariosService } from './comentarios.service';             // NUEVO
+import { Alerta } from '../../entities/alerta.entity'; // AÑADE
 
 @Module({
   imports: [
@@ -25,12 +28,17 @@ import { Calendario } from 'entities/calendario.entity';
       Lectura,
       Equipo,
       Calendario,
-      Usuario// 🔹 Aquí se incluye para que NestJS pueda inyectar su repositorio
+      Usuario, // 🔹 Aquí se incluye para que NestJS pueda inyectar su repositorio
+      Comentario, //AÑADIDO: servicio de comentarios
+      Alerta
     ]),
     forwardRef(() => UsuariosModule),
     forwardRef(() => AuthModule),
   ],
-  providers: [ProyectosService],
+  providers: [
+    ProyectosService,
+    ComentariosService, //AÑADIDO : entidad comentarios
+   ],
   controllers: [ProyectosController],
   exports: [ProyectosService],
 })

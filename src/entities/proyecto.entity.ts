@@ -6,6 +6,7 @@ import { Equipo } from './equipo.entity';
 import { Observacion } from './observacion.entity';
 import { Tratamiento } from './tratamiento.entity';
 import { VariableDependiente } from './variable-dependiente.entity';
+import { Comentario } from './comentario.entity';
 
 export enum TipoDisenio {
   COMPLETAMENTE_ALEATORIO = 'completamente_aleatorio',
@@ -54,4 +55,8 @@ export class Proyecto {
 
   @OneToMany(() => VariableDependiente, (v) => v.proyecto)
   variablesDependientes!: VariableDependiente[];
+
+  @OneToMany(() => Comentario, (comentario) => comentario.proyecto)
+  comentarios!: Comentario[];
+
 }
