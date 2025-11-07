@@ -21,6 +21,9 @@ export class AuthService {
       user: {
         id: user.id,
         usuario: user.usuario,
+        nombre: user.nombre,
+        apellido_p: user.apellido_p,
+        apellido_m: user.apellido_m,
         correo: user.correo,
         rol: user.rol,
       },
