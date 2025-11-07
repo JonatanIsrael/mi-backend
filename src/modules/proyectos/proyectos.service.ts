@@ -231,7 +231,7 @@ export class ProyectosService {
         for (const l of m.lecturas || []) {
           mClean.lecturas.push({
             id: l.id,
-            valor: Number(l.valor),
+            valor: l.valor === null ? null : Number(l.valor),
             fechaLectura: l.fechaProgramada,
             variableDependiente: {
               id: l.variableDependiente?.id,
