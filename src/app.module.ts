@@ -31,9 +31,11 @@ import { VariablesDependientesModule } from './modules/variables-dependientes/va
 import { CalendariosModule } from './modules/calendarios/calendarios.module';
 import { AlertasModule } from './modules/alertas/alertas.module';
 import { ObservacionesModule } from './modules/observaciones/observaciones.module';
+import { ReportesModule } from './modules/reportes/reportes.module';
 
 @Module({
   imports: [
+    ReportesModule, 
     ScheduleModule.forRoot(), // ← CRON ACTIVO
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot({
