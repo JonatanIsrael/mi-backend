@@ -829,7 +829,237 @@ private generarTablaFechaPDF(doc: any, proyecto: any, fecha: string, startY: num
     });
   }
 
+// En proyectos.service.ts - Agrega este método
+async obtenerResumenEstadistico(proyectoId: number, userId: number) {
+  const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
+  
+  const resumen: any[] = [];
 
+  // Por cada variable dependiente
+  proyecto.variablesDependientes.forEach((variable: any) => {
+    const lecturasVariable: number[] = [];
+    
+    // Recopilar todas las lecturas para esta variable
+    proyecto.tratamientos.forEach((tratamiento: any) => {
+      tratamiento.repeticiones.forEach((repeticion: any) => {
+        repeticion.muestras.forEach((muestra: any) => {
+          muestra.lecturas.forEach((lectura: any) => {
+            if (lectura.variableDependiente?.id === variable.id && 
+                lectura.valor !== null && 
+                lectura.valor !== undefined) {
+              lecturasVariable.push(Number(lectura.valor));
+            }
+          });
+        });
+      });
+    });
 
+    if (lecturasVariable.length > 0) {
+      // Calcular estadísticas
+      const media = lecturasVariable.reduce((a, b) => a + b, 0) / lecturasVariable.length;
+      const sorted = [...lecturasVariable].sort((a, b) => a - b);
+      const mediana = sorted[Math.floor(sorted.length / 2)];
+      const minimo = Math.min(...lecturasVariable);
+      const maximo = Math.max(...lecturasVariable);
+      
+      // Desviación estándar
+      const varianza = lecturasVariable.reduce((acc, val) => acc + Math.pow(val - media, 2), 0) / lecturasVariable.length;
+      const desviacionEstandar = Math.sqrt(varianza);
+      
+      // Cuartiles
+      const q1 = sorted[Math.floor(sorted.length * 0.25)];
+      const q3 = sorted[Math.floor(sorted.length * 0.75)];
+
+      resumen.push({
+        variable: variable.clave,
+        unidad: variable.unidad,
+        n: lecturasVariable.length,
+        media: Number(media.toFixed(2)),
+        mediana: Number(mediana.toFixed(2)),
+        desviacionEstandar: Number(desviacionEstandar.toFixed(2)),
+        minimo: Number(minimo.toFixed(2)),
+        maximo: Number(maximo.toFixed(2)),
+        q1: Number(q1.toFixed(2)),
+        q3: Number(q3.toFixed(2)),
+        rango: Number((maximo - minimo).toFixed(2))
+      });
+    }
+  });
+
+  return {
+    proyecto: proyecto.nombre,
+    totalMuestras: proyecto.tratamientos.reduce((total: number, t: any) => 
+      total + t.repeticiones.reduce((repTotal: number, r: any) => 
+        repTotal + r.muestras.length, 0), 0),
+    totalLecturas: resumen.reduce((total, item) => total + item.n, 0),
+    resumen
+  };
+}
+
+async generarResumenEstadisticoPDF(proyectoId: number, userId: number, resumenData: any): Promise<Buffer> {
+  const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
+  
+  const PDFDocument = require('pdfkit');
+  const doc = new PDFDocument({ 
+    margin: 40,
+    size: 'A4',
+    bufferPages: true 
+  });
+
+  const buffers: any[] = [];
+  doc.on('data', (chunk: any) => buffers.push(chunk));
+  
+  return new Promise((resolve, reject) => {
+    doc.on('end', () => {
+      const pdfData = Buffer.concat(buffers);
+      resolve(pdfData);
+    });
+
+    doc.on('error', reject);
+
+    // Título principal
+    doc.fontSize(18)
+       .fillColor('#2c3e50')
+       .text(`Resumen Estadístico - ${proyecto.nombre}`, 50, 80, { align: 'center' });
+    
+    doc.fontSize(12)
+       .fillColor('#666666')
+       .text('Análisis estadístico de las variables del proyecto', 50, 110, { align: 'center' });
+    
+    let startY = 150;
+
+    // Información general
+    doc.fontSize(14)
+       .fillColor('#34495e')
+       .text('Información General', 50, startY);
+    
+    startY += 30;
+    
+    doc.fontSize(10)
+       .fillColor('#000000')
+       .text(`• Proyecto: ${proyecto.nombre}`, 50, startY)
+       .text(`• Total de muestras: ${resumenData.totalMuestras || 0}`, 50, startY + 15)
+       .text(`• Total de lecturas con valores: ${resumenData.totalLecturas || 0}`, 50, startY + 30)
+       .text(`• Variables analizadas: ${resumenData.resumen?.length || 0}`, 50, startY + 45);
+    
+    startY += 80;
+
+    // Tabla de resumen estadístico
+    if (resumenData.resumen && resumenData.resumen.length > 0) {
+      doc.fontSize(14)
+         .fillColor('#34495e')
+         .text('Resumen Estadístico por Variable', 50, startY);
+      
+      startY += 30;
+      
+      // Generar tabla
+      startY = this.generarTablaResumenPDF(doc, resumenData.resumen, startY);
+    } else {
+      doc.fontSize(12)
+         .fillColor('#666666')
+         .text('No hay datos suficientes para el análisis estadístico', 50, startY, { align: 'center' });
+    }
+
+    // Pie de página
+    doc.fontSize(8)
+       .fillColor('#999999')
+       .text('Resumen generado automáticamente por Nexus Research', 50, doc.page.height - 30, { 
+         align: 'center' 
+       });
+
+    doc.end();
+  });
+}
+
+private generarTablaResumenPDF(doc: any, resumen: any[], startY: number): number {
+  const pageWidth = doc.page.width - 100;
+  let currentY = startY;
+
+  // 🔹 CORREGIDO: Definir tipo explícito
+  const columnWidths: { [key: string]: number } = {
+    variable: pageWidth * 0.25,
+    n: pageWidth * 0.08,
+    media: pageWidth * 0.12,
+    mediana: pageWidth * 0.12,
+    desviacion: pageWidth * 0.12,
+    minimo: pageWidth * 0.10,
+    maximo: pageWidth * 0.10,
+    rango: pageWidth * 0.11
+  };
+
+  const headers = ['Variable', 'n', 'Media', 'Mediana', 'Desv. Est.', 'Mínimo', 'Máximo', 'Rango'];
+  const columnKeys = Object.keys(columnWidths);
+
+  // Dibujar encabezados
+  doc.fontSize(8).font('Helvetica-Bold');
+  let x = 50;
+
+  // Fondo encabezados
+  doc.rect(50, currentY, pageWidth, 20)
+     .fillAndStroke('#5b4ace', '#000000')
+     .fillColor('#ffffff');
+
+  // Texto encabezados
+  headers.forEach((header, i) => {
+    const width = columnWidths[columnKeys[i]];
+    doc.text(header, x + 2, currentY + 6, {
+      width: width - 4,
+      align: 'center'
+    });
+    x += width;
+  });
+
+  currentY += 20;
+  doc.fillColor('#000000');
+
+  // Contenido de la tabla
+  doc.font('Helvetica').fontSize(7);
+
+  resumen.forEach((item, index) => {
+    // Verificar espacio en página
+    if (currentY + 15 > doc.page.height - 50) {
+      doc.addPage();
+      currentY = 70;
+    }
+
+    const rowData = [
+      `${item.variable} (${item.unidad})`,
+      item.n.toString(),
+      item.media.toString(),
+      item.mediana.toString(),
+      item.desviacionEstandar.toString(),
+      item.minimo.toString(),
+      item.maximo.toString(),
+      item.rango.toString()
+    ];
+
+    // Dibujar fila
+    x = 50;
+    
+    // Color de fondo alternado
+    const fillColor = (index % 2 === 0) ? '#ffffff' : '#f8f9fa';
+    doc.rect(50, currentY, pageWidth, 15).fill(fillColor);
+
+    rowData.forEach((text, i) => {
+      const width = columnWidths[columnKeys[i]];
+      
+      // Borde de celda
+      doc.rect(x, currentY, width, 15).stroke();
+      
+      // Texto
+      doc.fillColor('#2c3e50')
+         .text(text, x + 2, currentY + 4, {
+           width: width - 4,
+           align: 'center'
+         });
+      
+      x += width;
+    });
+
+    currentY += 15;
+  });
+
+  return currentY;
+}
 
 }

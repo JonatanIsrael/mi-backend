@@ -345,4 +345,47 @@ async generarPDF(
     const actualUserId = req.user.id;
     return this.proyectosService.obtenerProyectosPorUsuario(actualUserId, +userId);
   }
+
+  // En proyectos.controller.ts
+@Get(':id/resumen-estadistico')
+@UseGuards(JwtAuthGuard)
+async obtenerResumenEstadistico(
+  @Param('id') id: string,
+  @Request() req: ExpressRequest & { user: { id: number } }
+) {
+  try {
+    const userId = req.user?.id;
+    const resumen = await this.proyectosService.obtenerResumenEstadistico(+id, userId);
+    return { success: true, ...resumen };
+  } catch (error: any) {
+    throw new HttpException(
+      error.message || 'Error al obtener resumen estadístico',
+      error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+}
+
+@Post(':id/exportar-resumen-pdf')
+@UseGuards(JwtAuthGuard)
+async exportarResumenPDF(
+  @Param('id', ParseIntPipe) proyectoId: number,
+  @Body() body: { resumen: any[]; proyecto: any },
+  @Request() req: ExpressRequest & { user: { id: number } }
+) {
+  const userId = req.user.id;
+  
+  const pdfBuffer = await this.proyectosService.generarResumenEstadisticoPDF(
+    proyectoId, 
+    userId, 
+    body
+  );
+
+  const filename = `Resumen-Estadistico-${body.proyecto.nombre}-${new Date().toISOString().split('T')[0]}.pdf`;
+
+  return new StreamableFile(pdfBuffer, {
+    type: 'application/pdf',
+    disposition: `attachment; filename="${filename}"`,
+  });
+}
+
 }
