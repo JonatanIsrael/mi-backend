@@ -388,4 +388,38 @@ async exportarResumenPDF(
   });
 }
 
+// En proyectos.controller.ts - CORRIGE este endpoint
+@Post(':id/generar-resumen-pdf')  // ✅ Cambiar a generar-resumen-pdf
+@UseGuards(JwtAuthGuard)
+async generarResumenPDF(
+  @Param('id', ParseIntPipe) proyectoId: number,
+  @Body() body: { resumenData: any },  // ✅ Cambiar a resumenData
+  @Request() req: ExpressRequest & { user: { id: number } }
+) {
+  try {
+    console.log('🔍 DEBUG - Generando PDF para proyecto:', proyectoId);
+    console.log('🔍 DEBUG - Datos recibidos:', body);
+    
+    const userId = req.user.id;
+    
+    const pdfBuffer = await this.proyectosService.generarResumenEstadisticoPDF(
+      proyectoId, 
+      userId, 
+      body  // ✅ Pasar el body completo
+    );
+
+    const filename = `Resumen-Estadistico-${new Date().toISOString().split('T')[0]}.pdf`;
+
+    return new StreamableFile(pdfBuffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${filename}"`,
+    });
+  } catch (error: any) {
+    console.error('❌ Error en generarResumenPDF:', error);
+    throw new HttpException(
+      error.message || 'Error al generar PDF del resumen',
+      error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+    );
+  }
+}
 }

@@ -484,9 +484,31 @@ async generarPDFProyecto(proyectoId: number, userId: number, fechas: string[]): 
 }
 
 // Y asegúrate de que este método también esté en la clase:
+// ✅ MÉTODO CORREGIDO - Usar formato directo sin conversión de zona horaria
 private formatearFechaParaPDF(fechaStr: string): string {
+  // Si la fecha ya viene en formato YYYY-MM-DD, usarla directamente
+  if (fechaStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    const [year, month, day] = fechaStr.split('-');
+    const fecha = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    
+    return fecha.toLocaleDateString('es-MX', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }
+  
+  // Para otros formatos, usar el método seguro
   const fecha = new Date(fechaStr);
-  return fecha.toLocaleDateString('es-MX', {
+  
+  // Ajustar a hora local explícitamente
+  const fechaAjustada = new Date(
+    fecha.getFullYear(),
+    fecha.getMonth(),
+    fecha.getDate()
+  );
+  
+  return fechaAjustada.toLocaleDateString('es-MX', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -896,170 +918,236 @@ async obtenerResumenEstadistico(proyectoId: number, userId: number) {
   };
 }
 
-async generarResumenEstadisticoPDF(proyectoId: number, userId: number, resumenData: any): Promise<Buffer> {
-  const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
-  
-  const PDFDocument = require('pdfkit');
-  const doc = new PDFDocument({ 
-    margin: 40,
-    size: 'A4',
-    bufferPages: true 
-  });
-
-  const buffers: any[] = [];
-  doc.on('data', (chunk: any) => buffers.push(chunk));
-  
-  return new Promise((resolve, reject) => {
-    doc.on('end', () => {
-      const pdfData = Buffer.concat(buffers);
-      resolve(pdfData);
+// En ProyectosService - CORRIGE este método
+// En ProyectosService - CORRIGE los tipos de error
+async generarResumenEstadisticoPDF(proyectoId: number, userId: number, body: any): Promise<Buffer> {
+  try {
+    // Verificar que el usuario tenga acceso al proyecto
+    const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
+    
+    // ✅ EXTRAER los datos del resumen del body
+    const resumenData = body.resumenData || body;
+    
+    console.log('🔍 DEBUG - Proyecto:', proyecto.nombre);
+    console.log('🔍 DEBUG - Resumen data recibida:', resumenData);
+    
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ 
+      margin: 40,
+      size: 'A4',
+      bufferPages: true 
     });
 
-    doc.on('error', reject);
-
-    // Título principal
-    doc.fontSize(18)
-       .fillColor('#2c3e50')
-       .text(`Resumen Estadístico - ${proyecto.nombre}`, 50, 80, { align: 'center' });
+    const buffers: any[] = [];
+    doc.on('data', (chunk: any) => buffers.push(chunk));
     
-    doc.fontSize(12)
-       .fillColor('#666666')
-       .text('Análisis estadístico de las variables del proyecto', 50, 110, { align: 'center' });
-    
-    let startY = 150;
+    return new Promise((resolve, reject) => {
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
 
-    // Información general
-    doc.fontSize(14)
-       .fillColor('#34495e')
-       .text('Información General', 50, startY);
-    
-    startY += 30;
-    
-    doc.fontSize(10)
-       .fillColor('#000000')
-       .text(`• Proyecto: ${proyecto.nombre}`, 50, startY)
-       .text(`• Total de muestras: ${resumenData.totalMuestras || 0}`, 50, startY + 15)
-       .text(`• Total de lecturas con valores: ${resumenData.totalLecturas || 0}`, 50, startY + 30)
-       .text(`• Variables analizadas: ${resumenData.resumen?.length || 0}`, 50, startY + 45);
-    
-    startY += 80;
+      // ✅ CORREGIDO: Especificar tipo para error
+      doc.on('error', (error: Error) => {
+        console.error('❌ Error en PDFDocument:', error);
+        reject(new Error(`Error generando PDF: ${error.message || 'Error desconocido'}`));
+      });
 
-    // Tabla de resumen estadístico
-    if (resumenData.resumen && resumenData.resumen.length > 0) {
-      doc.fontSize(14)
-         .fillColor('#34495e')
-         .text('Resumen Estadístico por Variable', 50, startY);
-      
-      startY += 30;
-      
-      // Generar tabla
-      startY = this.generarTablaResumenPDF(doc, resumenData.resumen, startY);
-    } else {
-      doc.fontSize(12)
-         .fillColor('#666666')
-         .text('No hay datos suficientes para el análisis estadístico', 50, startY, { align: 'center' });
-    }
+      try {
+        // Título principal
+        doc.fontSize(18)
+           .fillColor('#2c3e50')
+           .text(`Resumen Estadístico - ${proyecto.nombre}`, 50, 80, { align: 'center' });
+        
+        doc.fontSize(12)
+           .fillColor('#666666')
+           .text('Análisis estadístico de las variables del proyecto', 50, 110, { align: 'center' });
+        
+        let startY = 150;
 
-    // Pie de página
-    doc.fontSize(8)
-       .fillColor('#999999')
-       .text('Resumen generado automáticamente por Nexus Research', 50, doc.page.height - 30, { 
-         align: 'center' 
-       });
+        // Información general
+        doc.fontSize(14)
+           .fillColor('#34495e')
+           .text('Información General', 50, startY);
+        
+        startY += 30;
+        
+        // ✅ USAR los datos correctos del resumen
+        const resumenArray = resumenData.resumen || resumenData.resumenData?.resumen || [];
+        const totalMuestras = resumenData.totalMuestras || resumenData.resumenData?.totalMuestras || 0;
+        const totalLecturas = resumenData.totalLecturas || resumenData.resumenData?.totalLecturas || 0;
+        
+        doc.fontSize(10)
+           .fillColor('#000000')
+           .text(`• Proyecto: ${proyecto.nombre}`, 50, startY)
+           .text(`• Descripción: ${proyecto.descripcion || 'Sin descripción'}`, 50, startY + 15)
+           .text(`• Total de muestras: ${totalMuestras}`, 50, startY + 30)
+           .text(`• Total de lecturas con valores: ${totalLecturas}`, 50, startY + 45)
+           .text(`• Variables analizadas: ${resumenArray.length}`, 50, startY + 60);
+        
+        startY += 100;
 
-    doc.end();
-  });
+        // Tabla de resumen estadístico
+        if (resumenArray.length > 0) {
+          doc.fontSize(14)
+             .fillColor('#34495e')
+             .text('Resumen Estadístico por Variable', 50, startY);
+          
+          startY += 30;
+          
+          // Generar tabla
+          startY = this.generarTablaResumenPDF(doc, resumenArray, startY);
+        } else {
+          doc.fontSize(12)
+             .fillColor('#666666')
+             .text('No hay datos suficientes para el análisis estadístico', 50, startY, { align: 'center' });
+        }
+
+        // Pie de página
+        doc.fontSize(8)
+           .fillColor('#999999')
+           .text('Resumen generado automáticamente por Nexus Research', 50, doc.page.height - 30, { 
+             align: 'center' 
+           });
+
+        doc.end();
+      } catch (innerError: unknown) {
+        console.error('❌ Error en la generación del PDF:', innerError);
+        // ✅ CORREGIDO: Manejo seguro de error unknown
+        const errorMessage = innerError instanceof Error ? innerError.message : 
+                            typeof innerError === 'string' ? innerError : 
+                            'Error desconocido en la generación del PDF';
+        reject(new Error(`Error en la generación del PDF: ${errorMessage}`));
+      }
+    });
+  } catch (error: unknown) {
+    console.error('❌ Error generando PDF de resumen:', error);
+    // ✅ CORREGIDO: Manejo seguro de error unknown
+    const errorMessage = error instanceof Error ? error.message : 
+                        typeof error === 'string' ? error : 
+                        'Error desconocido al generar PDF del resumen estadístico';
+    throw new Error(errorMessage);
+  }
 }
 
 private generarTablaResumenPDF(doc: any, resumen: any[], startY: number): number {
-  const pageWidth = doc.page.width - 100;
-  let currentY = startY;
+  try {
+    const pageWidth = doc.page.width - 100;
+    let currentY = startY;
 
-  // 🔹 CORREGIDO: Definir tipo explícito
-  const columnWidths: { [key: string]: number } = {
-    variable: pageWidth * 0.25,
-    n: pageWidth * 0.08,
-    media: pageWidth * 0.12,
-    mediana: pageWidth * 0.12,
-    desviacion: pageWidth * 0.12,
-    minimo: pageWidth * 0.10,
-    maximo: pageWidth * 0.10,
-    rango: pageWidth * 0.11
-  };
+    // Definir anchos de columnas
+    const columnWidths: { [key: string]: number } = {
+      variable: pageWidth * 0.25,
+      n: pageWidth * 0.08,
+      media: pageWidth * 0.12,
+      mediana: pageWidth * 0.12,
+      desviacion: pageWidth * 0.12,
+      minimo: pageWidth * 0.10,
+      maximo: pageWidth * 0.10,
+      rango: pageWidth * 0.11
+    };
 
-  const headers = ['Variable', 'n', 'Media', 'Mediana', 'Desv. Est.', 'Mínimo', 'Máximo', 'Rango'];
-  const columnKeys = Object.keys(columnWidths);
+    const headers = ['Variable', 'n', 'Media', 'Mediana', 'Desv. Est.', 'Mínimo', 'Máximo', 'Rango'];
+    const columnKeys = Object.keys(columnWidths);
 
-  // Dibujar encabezados
-  doc.fontSize(8).font('Helvetica-Bold');
-  let x = 50;
+    // Dibujar encabezados
+    doc.fontSize(8).font('Helvetica-Bold');
+    let x = 50;
 
-  // Fondo encabezados
-  doc.rect(50, currentY, pageWidth, 20)
-     .fillAndStroke('#5b4ace', '#000000')
-     .fillColor('#ffffff');
+    // Fondo encabezados
+    doc.rect(50, currentY, pageWidth, 20)
+       .fillAndStroke('#5b4ace', '#000000')
+       .fillColor('#ffffff');
 
-  // Texto encabezados
-  headers.forEach((header, i) => {
-    const width = columnWidths[columnKeys[i]];
-    doc.text(header, x + 2, currentY + 6, {
-      width: width - 4,
-      align: 'center'
-    });
-    x += width;
-  });
-
-  currentY += 20;
-  doc.fillColor('#000000');
-
-  // Contenido de la tabla
-  doc.font('Helvetica').fontSize(7);
-
-  resumen.forEach((item, index) => {
-    // Verificar espacio en página
-    if (currentY + 15 > doc.page.height - 50) {
-      doc.addPage();
-      currentY = 70;
-    }
-
-    const rowData = [
-      `${item.variable} (${item.unidad})`,
-      item.n.toString(),
-      item.media.toString(),
-      item.mediana.toString(),
-      item.desviacionEstandar.toString(),
-      item.minimo.toString(),
-      item.maximo.toString(),
-      item.rango.toString()
-    ];
-
-    // Dibujar fila
-    x = 50;
-    
-    // Color de fondo alternado
-    const fillColor = (index % 2 === 0) ? '#ffffff' : '#f8f9fa';
-    doc.rect(50, currentY, pageWidth, 15).fill(fillColor);
-
-    rowData.forEach((text, i) => {
+    // Texto encabezados
+    headers.forEach((header, i) => {
       const width = columnWidths[columnKeys[i]];
-      
-      // Borde de celda
-      doc.rect(x, currentY, width, 15).stroke();
-      
-      // Texto
-      doc.fillColor('#2c3e50')
-         .text(text, x + 2, currentY + 4, {
-           width: width - 4,
-           align: 'center'
-         });
-      
+      doc.text(header, x + 2, currentY + 6, {
+        width: width - 4,
+        align: 'center'
+      });
       x += width;
     });
 
-    currentY += 15;
-  });
+    currentY += 20;
+    doc.fillColor('#000000');
 
-  return currentY;
+    // Contenido de la tabla
+    doc.font('Helvetica').fontSize(7);
+
+    resumen.forEach((item, index) => {
+      // Verificar espacio en página
+      if (currentY + 15 > doc.page.height - 50) {
+        doc.addPage();
+        currentY = 70;
+        
+        // Redibujar encabezados en nueva página
+        doc.fontSize(8).font('Helvetica-Bold');
+        x = 50;
+        doc.rect(50, currentY, pageWidth, 20)
+           .fillAndStroke('#5b4ace', '#000000')
+           .fillColor('#ffffff');
+        
+        headers.forEach((header, i) => {
+          const width = columnWidths[columnKeys[i]];
+          doc.text(header, x + 2, currentY + 6, {
+            width: width - 4,
+            align: 'center'
+          });
+          x += width;
+        });
+        
+        currentY += 20;
+        doc.fillColor('#000000').font('Helvetica').fontSize(7);
+      }
+
+      // ✅ VALIDAR que los datos existan antes de usarlos
+      const rowData = [
+        `${item.variable || 'N/A'} (${item.unidad || 'N/A'})`,
+        (item.n || 0).toString(),
+        typeof item.media === 'number' ? item.media.toFixed(2) : 'N/A',
+        typeof item.mediana === 'number' ? item.mediana.toFixed(2) : 'N/A',
+        typeof item.desviacionEstandar === 'number' ? item.desviacionEstandar.toFixed(2) : 'N/A',
+        typeof item.minimo === 'number' ? item.minimo.toFixed(2) : 'N/A',
+        typeof item.maximo === 'number' ? item.maximo.toFixed(2) : 'N/A',
+        typeof item.rango === 'number' ? item.rango.toFixed(2) : 'N/A'
+      ];
+
+      // Dibujar fila
+      x = 50;
+      
+      // Color de fondo alternado
+      const fillColor = (index % 2 === 0) ? '#ffffff' : '#f8f9fa';
+      doc.rect(50, currentY, pageWidth, 15).fill(fillColor);
+
+      rowData.forEach((text, i) => {
+        const width = columnWidths[columnKeys[i]];
+        
+        // Borde de celda
+        doc.rect(x, currentY, width, 15).stroke();
+        
+        // Texto
+        doc.fillColor('#2c3e50')
+           .text(text, x + 2, currentY + 4, {
+             width: width - 4,
+             align: 'center'
+           });
+        
+        x += width;
+      });
+
+      currentY += 15;
+    });
+
+    return currentY;
+  } catch (error: unknown) {
+    console.error('❌ Error en generarTablaResumenPDF:', error);
+    // ✅ CORREGIDO: Manejo seguro de error unknown
+    const errorMessage = error instanceof Error ? error.message : 
+                        typeof error === 'string' ? error : 
+                        'Error desconocido generando tabla PDF';
+    throw new Error(`Error generando tabla PDF: ${errorMessage}`);
+  }
 }
 
 }
