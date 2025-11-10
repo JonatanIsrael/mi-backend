@@ -67,7 +67,7 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
   const proyecto = this.proyectosRepo.create({
     nombre: dto.nombre,
     descripcion: dto.descripcion,
-    // ⚠️ CAMBIO: Guardar directamente como string sin parseLocalDate
+     tipoDisenio: dto.tipoDisenio as TipoDisenio,
     fechaInicio: dto.fechaInicio as any,
     fechaFin: dto.fechaFin as any,
     investigadorPrincipal: investigador,
@@ -80,10 +80,6 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
 
   const proyectoGuardado = await this.proyectosRepo.save(proyecto);
 
-  console.log('🔍 DEBUG Proyecto guardado en BD:', {
-    fechaInicio: proyectoGuardado.fechaInicio,
-    fechaFin: proyectoGuardado.fechaFin
-  });
 
   // 2️⃣ Crear variables dependientes
   const variablesGuardadas: VariableDependiente[] = [];

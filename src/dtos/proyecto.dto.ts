@@ -20,7 +20,7 @@ export class CrearProyectoCompletoDto {
   userId!: number;
   nombre!: string;
   descripcion?: string;
-  tipo_disenio!: string;
+  tipoDisenio!: string;
   variablesDependientes!: CrearVariableDto[];
   tratamientos!: CrearTratamientoDto[];
   numRepeticiones!: number;

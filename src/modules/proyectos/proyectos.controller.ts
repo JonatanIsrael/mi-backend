@@ -38,25 +38,16 @@ async crearProyectoCompleto(
     const userId = req.user?.id;
     if (!userId) throw new HttpException('No autorizado', HttpStatus.UNAUTHORIZED);
 
-    console.log('🔍 CONTROLADOR - DTO completo recibido:', JSON.stringify(dto, null, 2));
-
     // ✅ VALIDAR que las fechas existan
     if (!dto.fechaInicio || !dto.fechaFin) {
       throw new HttpException('fechaInicio y fechaFin son requeridos', HttpStatus.BAD_REQUEST);
     }
 
-    console.log('🔍 CONTROLADOR - Fechas recibidas:', {
-      fechaInicio: dto.fechaInicio,
-      fechaFin: dto.fechaFin,
-      tipoInicio: typeof dto.fechaInicio,
-      tipoFin: typeof dto.fechaFin
-    });
-
     // ✅ SOLUCIÓN SIMPLE: Usar las fechas directamente
     const data = await this.proyectosService.crearProyectoCompleto({ ...dto, userId });
     return { success: true, proyecto: data };
   } catch (error: any) {
-    console.error('❌ ERROR en crearProyectoCompleto:', error);
+    console.error('ERROR en crearProyectoCompleto:', error);
     throw new HttpException(
       error.message || 'Error al crear el proyecto',
       error.status || HttpStatus.INTERNAL_SERVER_ERROR,
