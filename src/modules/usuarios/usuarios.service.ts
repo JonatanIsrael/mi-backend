@@ -90,17 +90,39 @@ export class UsuariosService {
   ): Promise<Usuario> {
     const user = await this.encontrarPorId(id);
 
+    // Verificar si el correo ya existe (solo si se está cambiando)
     if (dto.correo && dto.correo !== user.correo) {
-      const existe = await this.usuarioRepository.findOne({
+      const existeCorreo = await this.usuarioRepository.findOne({
         where: { correo: dto.correo },
       });
-      if (existe) {
+      if (existeCorreo) {
         throw new UnauthorizedException('El correo ya está registrado.');
       }
     }
 
-    Object.assign(user, dto);
-    return await this.usuarioRepository.save(user);
+    // Si se está cambiando la contraseña, hashearla
+    if (dto.contrasena) {
+      dto.contrasena = await bcrypt.hash(dto.contrasena, 10);
+    } else {
+      // Si no se cambia la contraseña, eliminar la propiedad del DTO
+      // para no sobreescribir la contraseña existente con undefined
+      delete dto.contrasena;
+    }
+
+    // Actualizar solo las propiedades que vienen en el DTO
+    // Usar type assertion para evitar errores de TypeScript
+    Object.keys(dto).forEach((key: keyof ActualizarUsuarioDto) => {
+      if (dto[key] !== undefined) {
+        // Usar type assertion para user también
+        (user as any)[key] = dto[key];
+      }
+    });
+
+
+    const usuarioActualizado = await this.usuarioRepository.save(user);
+    
+    
+    return usuarioActualizado;
   }
 
   async eliminarUsuario(id: number): Promise<void> {
@@ -108,19 +130,23 @@ export class UsuariosService {
     await this.usuarioRepository.remove(user);
   }
 
-  async cambiarRol(id: number, nuevoRol: string): Promise<Usuario> {
-    const rolesPermitidos = ['administrador', 'maestro', 'alumno'];
-    if (!rolesPermitidos.includes(nuevoRol)) {
-      throw new BadRequestException('Rol no válido');
-    }
-
-    const user = await this.encontrarPorId(id);
-    user.rol = nuevoRol;
-    return await this.usuarioRepository.save(user);
+ async cambiarRol(id: number, nuevoRol: string): Promise<Usuario> {
+  const rolesPermitidos = ['administrador', 'maestro', 'alumno'];
+  if (!rolesPermitidos.includes(nuevoRol)) {
+    throw new BadRequestException('Rol no válido');
   }
 
+  const user = await this.encontrarPorId(id);
+  user.rol = nuevoRol;
+  
+  
+  const usuarioActualizado = await this.usuarioRepository.save(user);
+  
+  
+  return usuarioActualizado;
+}
+
   async buscarPorNombre(usuario: string): Promise<Usuario | null> {
-    // Evitar null en el array para TypeScript
     const conditions = [{ correo: usuario }, { usuario }];
     const user = await this.usuarioRepository.findOne({
       where: conditions,
@@ -128,13 +154,11 @@ export class UsuariosService {
     return user || null;
   }
 
-  // 🔹 Buscar usuario por correo
-async encontrarPorCorreo(correo: string): Promise<Usuario> {
-  const usuario = await this.usuarioRepository.findOne({ where: { correo } });
-  if (!usuario) {
-    throw new NotFoundException(`Usuario con correo ${correo} no encontrado`);
+  async encontrarPorCorreo(correo: string): Promise<Usuario> {
+    const usuario = await this.usuarioRepository.findOne({ where: { correo } });
+    if (!usuario) {
+      throw new NotFoundException(`Usuario con correo ${correo} no encontrado`);
+    }
+    return usuario;
   }
-  return usuario;
-}
-
 }

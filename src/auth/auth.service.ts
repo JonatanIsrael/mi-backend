@@ -26,6 +26,7 @@ export class AuthService {
         apellido_m: user.apellido_m,
         correo: user.correo,
         rol: user.rol,
+        fecha_registro: user.fecha_registro
       },
       token,
     };

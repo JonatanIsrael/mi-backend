@@ -10,10 +10,9 @@ import { UsuariosModule } from '../usuarios/usuarios.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Alerta, Proyecto]), // ✅ AGREGAR Proyecto aquí
+    TypeOrmModule.forFeature([Alerta, Proyecto]),
     AuthModule,
     UsuariosModule,
-    // ✅ QUITAR ProyectosModule de los imports
   ],
   controllers: [AlertasController],
   providers: [AlertasService],
