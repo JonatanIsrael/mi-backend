@@ -292,7 +292,6 @@ export class ProyectosService {
   async obtenerProyectosParaCard(userId: number) {
     return this.proyectosRepo.find({
       where: { investigadorPrincipal: { id: userId } },
-      select: ['id', 'nombre', 'descripcion', 'tipoDisenio'],
       relations: ['investigadorPrincipal'],
     });
   }
