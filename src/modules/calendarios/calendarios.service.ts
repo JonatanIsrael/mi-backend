@@ -1,5 +1,5 @@
 // src/modules/calendarios/calendarios.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual } from 'typeorm';
 import { Calendario } from '../../entities/calendario.entity';
@@ -32,10 +32,15 @@ export class CalendariosService {
     return this.calendariosRepo.save(calendario);
   }
 
-  // Obtener eventos por proyecto
+  // ✅ CORREGIDO: Obtener eventos por proyecto - VERIFICA COLABORADORES
   async encontrarPorProyecto(idProyecto: number, userId: number) {
-    const proyecto = await this.proyectosService.encontrarPorId(idProyecto, userId);
-    return this.calendariosRepo.find({ where: { proyecto } });
+    // Usar obtenerProyectosConLecturas que SÍ verifica colaboradores
+    const proyecto = await this.proyectosService.obtenerProyectosConLecturas(idProyecto, userId);
+    
+    return this.calendariosRepo.find({ 
+      where: { proyecto: { id: idProyecto } },
+      relations: ['proyecto']
+    });
   }
 
   // CRON: Ejecuta cada día a las 00:00
