@@ -32,11 +32,15 @@ export class ProyectosService {
   // ------------------------------------------------
   // Crear proyecto completo (variables, tratamientos, repeticiones, muestras, lecturas, calendario)
   // ------------------------------------------------
+  private parseLocalDate(dateStr: string): Date {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day); // Mes base 0
+  }
+
 
   async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) {
   if (!dto.nombre) throw new Error('El proyecto debe tener un nombre');
   if (!dto.fechaInicio || !dto.fechaFin) throw new Error('Debe proporcionar fechaInicio y fechaFin');
-
   if (!dto.fechasObservacion || dto.fechasObservacion.length === 0)
     throw new Error('Se deben proporcionar las fechas de observación desde el front');
 
@@ -48,8 +52,8 @@ export class ProyectosService {
   const proyecto = this.proyectosRepo.create({
     nombre: dto.nombre,
     descripcion: dto.descripcion,
-    fechaInicio: new Date(dto.fechaInicio),
-    fechaFin: new Date(dto.fechaFin),
+    fechaInicio: this.parseLocalDate(dto.fechaInicio),
+    fechaFin: this.parseLocalDate(dto.fechaFin),
     investigadorPrincipal: investigador,
   });
   const proyectoGuardado = await this.proyectosRepo.save(proyecto);
@@ -96,13 +100,10 @@ export class ProyectosService {
           })
         );
 
-
+        // Crear lecturas para cada variable y cada fecha de observación
         for (const variable of variablesGuardadas) {
           for (const fechaStr of dto.fechasObservacion || []) {
-            const fecha = new Date(fechaStr);
-            if (isNaN(fecha.getTime())) {
-              continue;
-            }
+            const fecha = this.parseLocalDate(fechaStr);
 
             const lectura = this.lecturaRepo.create({
               muestra: muestraGuardada,
@@ -120,10 +121,10 @@ export class ProyectosService {
   }
 
   // ✅ Crear eventos de calendario para cada fecha de observación
-  for (const fecha of dto.fechasObservacion) {
+  for (const fechaStr of dto.fechasObservacion) {
     const evento = this.calendarioRepo.create({
       proyecto: proyectoGuardado,
-      fecha: new Date(fecha),
+      fecha: this.parseLocalDate(fechaStr),
       descripcion: `Observación programada para el proyecto "${dto.nombre}"`,
       tipoEvento: TipoEvento.OBSERVACION,
     });
@@ -145,7 +146,6 @@ export class ProyectosService {
     ],
   });
 }
-
 
   // ------------------------------------------------
   // Obtener proyecto con lecturas (limpio) y verificar acceso (admin/propietario/miembro)
