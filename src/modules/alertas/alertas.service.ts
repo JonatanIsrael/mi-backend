@@ -10,7 +10,7 @@ export class AlertasService {
   constructor(
     @InjectRepository(Alerta)
     private readonly alertasRepo: Repository<Alerta>,
-    private readonly proyectosService: ProyectosService, // <-- agregar
+    private readonly proyectosService: ProyectosService,
   ) {}
 
   async crear(crearAlertaDto: CrearAlertaDto, userId: number) {
@@ -26,5 +26,15 @@ export class AlertasService {
 
     // 3️⃣ Guardar en la base de datos
     return this.alertasRepo.save(alerta);
+  }
+
+  // 🔹 NUEVO MÉTODO - Obtener alertas del usuario
+  async obtenerAlertasUsuario(userId: number) {
+    return this.alertasRepo.find({
+      where: { usuario: { id: userId } },
+      relations: ['proyecto', 'usuario'],
+      order: { fechaEnvio: 'DESC' }, // Usar fechaEnvio en lugar de fecha_creacion
+      take: 10, // Últimas 10 alertas
+    });
   }
 }

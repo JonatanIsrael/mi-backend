@@ -1,4 +1,5 @@
-// src/modules/proyectos/comentarios.service.ts
+// src/modules/comentarios/comentarios.service.ts
+
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,19 +7,23 @@ import { Comentario } from '../../entities/comentario.entity';
 import { Proyecto } from '../../entities/proyecto.entity';
 import { Equipo } from '../../entities/equipo.entity';
 import { CrearComentarioDto } from '../../dtos/comentario.dto';
-import { Alerta, TipoAlerta } from '../../entities/alerta.entity'; // AÑADE TipoAlerta
+import { Alerta, TipoAlerta } from '../../entities/alerta.entity';
+import { Usuario } from '../../entities/usuario.entity'; // 🔹 Importante para el tipo de relación
 
 @Injectable()
 export class ComentariosService {
   constructor(
     @InjectRepository(Comentario)
     private readonly comentarioRepo: Repository<Comentario>,
+
     @InjectRepository(Proyecto)
     private readonly proyectoRepo: Repository<Proyecto>,
-    @InjectRepository(Alerta) 
-    private readonly alertaRepo: Repository<Alerta>, // CORREGIDO: Alerta (no ALerta)
+
+    @InjectRepository(Alerta)
+    private readonly alertaRepo: Repository<Alerta>,
   ) {}
 
+  // === CREAR COMENTARIO ===
   async crearComentario(
     proyectoId: number,
     usuarioId: number,
@@ -40,17 +45,19 @@ export class ComentariosService {
       throw new ForbiddenException('No tienes permiso para comentar');
     }
 
-    // === GUARDAR COMENTARIO ===
+    // === ✅ CREAR COMENTARIO CON RELACIONES REALES ===
     const comentario = this.comentarioRepo.create({
       comentario: dto.comentario,
-      usuario_id: usuarioId,
-      proyecto_id: proyectoId,
+      usuario: { id: usuarioId } as Usuario,     // ✅ se usa relación, no solo el id
+      proyecto: { id: proyectoId } as Proyecto,  // ✅ igual aquí
     });
+
     const comentarioGuardado = await this.comentarioRepo.save(comentario);
 
-    // === CREAR ALERTAS PARA TODOS LOS MIEMBROS (excepto el que comentó) ===
+    // === CREAR ALERTAS PARA OTROS USUARIOS ===
     const usuariosIds = new Set<number>();
     usuariosIds.add(proyecto.investigadorPrincipal.id);
+
     proyecto.equipos?.forEach((equipo: any) => {
       equipo.miembros?.forEach((miembro: any) => {
         usuariosIds.add(miembro.id);
@@ -58,22 +65,35 @@ export class ComentariosService {
     });
 
     const alertas = Array.from(usuariosIds)
-      .filter(id => id !== usuarioId)
-      .map(id => this.alertaRepo.create({
-        usuario: { id } as any,
-        proyecto: { id: proyectoId } as any,
-        descripcion: `Nuevo comentario en el proyecto "${proyecto.nombre}"`, // CORREGIDO
-        tipo: TipoAlerta.RECORDATORIO, // CORREGIDO
-      }));
+      .filter((id) => id !== usuarioId)
+      .map((id) =>
+        this.alertaRepo.create({
+          usuario: { id } as any,
+          proyecto: { id: proyectoId } as any,
+          descripcion: `Nuevo comentario en el proyecto "${proyecto.nombre}"`,
+          tipo: TipoAlerta.RECORDATORIO,
+        }),
+      );
 
     if (alertas.length > 0) {
       await this.alertaRepo.save(alertas);
     }
 
-    return comentarioGuardado;
+    // === ✅ DEVOLVER COMENTARIO CON DATOS DE USUARIO Y PROYECTO ===
+    const comentarioConUsuario = await this.comentarioRepo.findOne({
+      where: { id: comentarioGuardado.id },
+      relations: ['usuario', 'proyecto'], // ✅ aseguramos que se cargue la relación
+    });
+
+    if (!comentarioConUsuario) {
+      throw new NotFoundException('Error al recuperar el comentario creado');
+    }
+
+    return comentarioConUsuario;
   }
 
-  async obtenerComentarios(proyectoId: number, usuarioId: number): Promise<Comentario[]> {
+  // === OBTENER COMENTARIOS DE UN PROYECTO ===
+  async obtenerComentarios(proyectoId: number, usuarioId: number): Promise<any[]> {
     const proyecto = await this.proyectoRepo.findOne({
       where: { id: proyectoId },
       relations: ['investigadorPrincipal', 'equipos', 'equipos.miembros'],
@@ -90,10 +110,28 @@ export class ComentariosService {
       throw new ForbiddenException('No tienes permiso para ver comentarios');
     }
 
-    return this.comentarioRepo.find({
-      where: { proyecto_id: proyectoId },
+    // === ✅ CARGAR SIEMPRE USUARIO ASOCIADO AL COMENTARIO ===
+    const comentarios = await this.comentarioRepo.find({
+      where: { proyecto: { id: proyectoId } }, // ✅ se usa relación en lugar de campo suelto
       relations: ['usuario'],
       order: { fecha_comentario: 'DESC' },
     });
+
+    // === FORMATEAR FECHAS Y ASEGURAR DATOS DEL USUARIO ===
+    return comentarios.map((c) => ({
+      ...c,
+      fecha_comentario: c.fecha_comentario
+        ? new Date(c.fecha_comentario).toISOString()
+        : null,
+      usuario: c.usuario
+        ? {
+            id: c.usuario.id,
+            usuario: c.usuario.usuario,
+            nombre: c.usuario.nombre,
+            apellido_p: c.usuario.apellido_p,
+            apellido_m: c.usuario.apellido_m,
+          }
+        : { id: 0, usuario: 'desconocido', nombre: 'Usuario desconocido' },
+    }));
   }
 }

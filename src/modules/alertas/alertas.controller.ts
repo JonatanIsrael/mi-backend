@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, Req } from '@nestjs/common';
 import { AlertasService } from './alertas.service';
 import { CrearAlertaDto } from '../../dtos/alerta.dto';
 import { JwtAuthGuard } from '../../auth/jwt-auth.guard';
@@ -15,5 +15,14 @@ export class AlertasController {
     @Req() req: ExpressRequest & { user: { id: number } },
   ) {
     return this.alertasService.crear(crearAlertaDto, req.user.id);
+  }
+
+  // 🔹 NUEVO ENDPOINT - Obtener alertas del usuario
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async obtenerAlertasUsuario(
+    @Req() req: ExpressRequest & { user: { id: number } },
+  ) {
+    return this.alertasService.obtenerAlertasUsuario(req.user.id);
   }
 }

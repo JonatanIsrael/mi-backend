@@ -27,4 +27,10 @@ export class CalendariosController {
   ) {
     return this.calendariosService.encontrarPorProyecto(+idProyecto, req.user.id);
   }
+
+  @Get('usuario/eventos')
+    @UseGuards(JwtAuthGuard)
+    async obtenerEventosUsuario(@Req() req: ExpressRequest & { user: { id: number } }) {
+      // Lógica para obtener todos los eventos de todos los proyectos del usuario
+    }
 }
