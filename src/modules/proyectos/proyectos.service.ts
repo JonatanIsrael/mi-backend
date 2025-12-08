@@ -151,6 +151,9 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
       fecha: this.parseLocalDate(fechaStr), // ✅ Usar fecha local
       descripcion: `Observación programada para el proyecto "${dto.nombre}"`,
       tipoEvento: TipoEvento.OBSERVACION,
+      notificado: false,
+      notificado24h: false,
+      notificado1h: false,
     });
     await this.calendarioRepo.save(evento);
   }
@@ -254,7 +257,7 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
           for (const l of m.lecturas || []) {
             mClean.lecturas.push({
               id: l.id,
-              valor: l.valor === null ? null : Number(l.valor),
+              valor: l.valor,
               fechaLectura: l.fechaProgramada,
               variableDependiente: {
                 id: l.variableDependiente?.id,
@@ -318,46 +321,60 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
     });
   }
 
+  //Exportar Excel
+
 async exportarProyectoExcel(proyectoId: number, userId: number): Promise<Buffer> {
-  const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
+  // Obtener proyecto con relaciones necesarias
+  const proyecto = await this.proyectosRepo.findOne({
+    where: { id: proyectoId },
+    relations: [
+      'investigadorPrincipal',
+      'variablesDependientes',
+      'tratamientos',
+      'tratamientos.repeticiones', 
+      'tratamientos.repeticiones.muestras',
+      'tratamientos.repeticiones.muestras.lecturas',
+      'tratamientos.repeticiones.muestras.lecturas.variableDependiente',
+    ],
+  });
+
+  if (!proyecto) {
+    throw new NotFoundException('Proyecto no encontrado');
+  }
+
+  // Verificar permisos
+  const usuario = await this.usuariosService.encontrarPorId(userId);
+  const esAdmin = usuario.rol === 'administrador';
+  const esPropietario = proyecto.investigadorPrincipal?.id === userId;
+  const esMiembro = proyecto.equipos?.some(e => e.miembros?.some(m => m.id === userId)) ?? false;
+
+  if (!esAdmin && !esPropietario && !esMiembro) {
+    throw new ForbiddenException('No autorizado para exportar este proyecto');
+  }
+
   const workbook = new ExcelJS.Workbook();
-  
-  // ✅ Configurar el workbook para usar hora local
-  workbook.creator = 'Sistema';
-  workbook.lastModifiedBy = 'Sistema';
-  workbook.created = new Date();
-  workbook.modified = new Date();
-  
   const sheet = workbook.addWorksheet('Proyecto');
 
   // Encabezados
-  const header = ['FechaRegistro', 'Tratamiento', 'Repetición', 'Muestra', ...proyecto.variablesDependientes.map((v: any) => v.clave)];
+  const header = [
+    'FechaRegistro', 
+    'Tratamiento', 
+    'Repetición', 
+    'Muestra', 
+    ...proyecto.variablesDependientes.map(v => v.clave)
+  ];
   sheet.addRow(header);
 
-  // ✅ FUNCIÓN CORREGIDA: Mantener fecha local sin conversión UTC
-  const formatLocalDate = (date: Date): string => {
-    if (!date) return '';
-    
-    // Usar métodos locales explícitamente
-    const fechaLocal = new Date(date);
-    const year = fechaLocal.getFullYear();
-    const month = String(fechaLocal.getMonth() + 1).padStart(2, '0');
-    const day = String(fechaLocal.getDate()).padStart(2, '0');
-    
-    return `${year}-${month}-${day}`;
-  };
-
-  // Obtener todas las fechas únicas de las lecturas
+  // Obtener todas las fechas únicas
   const todasFechas = new Set<string>();
-  proyecto.tratamientos.forEach((t: any) => {
-    t.repeticiones.forEach((r: any) => {
-      r.muestras.forEach((m: any) => {
-        m.lecturas.forEach((l: any) => {
-          if (l.fechaLectura) {
-            // ✅ Crear fecha local sin ajustes UTC
-            const fecha = new Date(l.fechaLectura);
-            // Usar la fecha tal como está, sin conversiones
-            const fechaStr = formatLocalDate(fecha);
+  
+  proyecto.tratamientos.forEach(t => {
+    t.repeticiones.forEach(r => {
+      r.muestras.forEach(m => {
+        m.lecturas.forEach(l => {
+          if (l.fechaProgramada) {
+            const fecha = new Date(l.fechaProgramada);
+            const fechaStr = fecha.toISOString().split('T')[0];
             todasFechas.add(fechaStr);
           }
         });
@@ -367,26 +384,49 @@ async exportarProyectoExcel(proyectoId: number, userId: number): Promise<Buffer>
 
   const fechasOrdenadas = Array.from(todasFechas).sort();
 
-  // Crear filas por cada combinación
-  proyecto.tratamientos.forEach((t: any) => {
-    t.repeticiones.forEach((r: any) => {
-      r.muestras.forEach((m: any) => {
+  // Crear filas
+  proyecto.tratamientos.forEach(t => {
+    t.repeticiones.forEach(r => {
+      r.muestras.forEach(m => {
         fechasOrdenadas.forEach(fechaStr => {
+          // ✅ SOLUCIÓN CORREGIDA: Crear array primero, luego modificar celdas individuales
           const rowData = [
-            fechaStr, // ✅ Ya está formateada correctamente
+            fechaStr,
             t.nombre,
             r.numero,
             m.numero,
-            ...proyecto.variablesDependientes.map((v: any) => {
-              const lectura = m.lecturas.find((l: any) => {
-                if (!l.fechaLectura) return false;
-                const lecturaFecha = formatLocalDate(new Date(l.fechaLectura));
+            ...proyecto.variablesDependientes.map(v => {
+              const lectura = m.lecturas.find(l => {
+                if (!l.fechaProgramada) return false;
+                const lecturaFecha = new Date(l.fechaProgramada).toISOString().split('T')[0];
                 return lecturaFecha === fechaStr && l.variableDependiente?.id === v.id;
               });
-              return lectura ? lectura.valor : '';
-            }),
+              
+              // Valor temporal - luego lo corregiremos
+              return lectura?.valor !== null && lectura?.valor !== undefined ? lectura.valor : null;
+            })
           ];
-          sheet.addRow(rowData);
+
+          // ✅ AGREGAR LA FILA CON EL ARRAY
+          const row = sheet.addRow(rowData);
+          
+          // ✅ CORREGIR LAS CELDAS DE VARIABLES DESPUÉS DE AGREGAR LA FILA
+          proyecto.variablesDependientes.forEach((v, index) => {
+            const cellIndex = 5 + index; // Columna 5 en adelante
+            const lectura = m.lecturas.find(l => {
+              if (!l.fechaProgramada) return false;
+              const lecturaFecha = new Date(l.fechaProgramada).toISOString().split('T')[0];
+              return lecturaFecha === fechaStr && l.variableDependiente?.id === v.id;
+            });
+
+            if (lectura && lectura.valor !== null && lectura.valor !== undefined) {
+              // Mantener el valor numérico
+              row.getCell(cellIndex).value = lectura.valor;
+            } else {
+              // ✅ FORZAR CELDA COMPLETAMENTE VACÍA
+              row.getCell(cellIndex).value = '';
+            }
+          });
         });
       });
     });
@@ -397,8 +437,6 @@ async exportarProyectoExcel(proyectoId: number, userId: number): Promise<Buffer>
 }
 
   // Exportar PDF con plantillas ///
-
-// Agrega este método en la clase ProyectosService, después de exportarProyectoExcel
 
 async generarPDFProyecto(proyectoId: number, userId: number, fechas: string[]): Promise<Buffer> {
   const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);

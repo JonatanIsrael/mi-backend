@@ -8,12 +8,14 @@ import { Proyecto } from '../../entities/proyecto.entity';
 import { Alerta } from '../../entities/alerta.entity';
 import { AuthModule } from '../../auth/auth.module';
 import { ProyectosModule } from '../proyectos/proyectos.module';
+import { UsuariosModule } from '../usuarios/usuarios.module'; // ✅ Agregar esta importación
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Calendario, Proyecto, Alerta]),
     AuthModule,
     ProyectosModule,
+    UsuariosModule, // ✅ Agregar esta línea
   ],
   controllers: [CalendariosController],
   providers: [CalendariosService],

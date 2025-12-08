@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, BeforeInsert, BeforeUpdate } from 'typeorm';
 import { Proyecto } from './proyecto.entity';
 
 export enum TipoEvento {
@@ -27,5 +27,30 @@ export class Calendario {
   tipoEvento!: TipoEvento;
 
   @Column({ default: false })
-  notificado!: boolean;
+  notificado!: boolean; // Notificado el día del evento
+
+  // ✅ NUEVOS CAMPOS PARA NOTIFICACIONES PROGRAMADAS
+  @Column({ name: 'notificado_24h', default: false })
+  notificado24h!: boolean; // Notificado 24h antes
+
+  @Column({ name: 'notificado_1h', default: false })
+  notificado1h!: boolean; // Notificado 1h antes (opcional)
+
+  @Column({ type: 'timestamp', nullable: true })
+  fechaCreacion!: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  fechaActualizacion!: Date;
+
+  // Hook para setear fechas automáticamente
+  @BeforeInsert()
+  setFechasCreacion() {
+    this.fechaCreacion = new Date();
+    this.fechaActualizacion = new Date();
+  }
+
+  @BeforeUpdate()
+  setFechaActualizacion() {
+    this.fechaActualizacion = new Date();
+  }
 }
