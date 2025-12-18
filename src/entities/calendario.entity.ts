@@ -27,14 +27,14 @@ export class Calendario {
   tipoEvento!: TipoEvento;
 
   @Column({ default: false })
-  notificado!: boolean; // Notificado el día del evento
+  notificado!: boolean; 
 
-  // ✅ NUEVOS CAMPOS PARA NOTIFICACIONES PROGRAMADAS
+
   @Column({ name: 'notificado_24h', default: false })
-  notificado24h!: boolean; // Notificado 24h antes
+  notificado24h!: boolean; 
 
   @Column({ name: 'notificado_1h', default: false })
-  notificado1h!: boolean; // Notificado 1h antes (opcional)
+  notificado1h!: boolean;
 
   @Column({ type: 'timestamp', nullable: true })
   fechaCreacion!: Date;
@@ -42,7 +42,6 @@ export class Calendario {
   @Column({ type: 'timestamp', nullable: true })
   fechaActualizacion!: Date;
 
-  // Hook para setear fechas automáticamente
   @BeforeInsert()
   setFechasCreacion() {
     this.fechaCreacion = new Date();

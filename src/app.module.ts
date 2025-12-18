@@ -2,7 +2,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
-import { ScheduleModule } from '@nestjs/schedule'; // ← YA ESTÁ
+import { ScheduleModule } from '@nestjs/schedule';
 
 // Entities
 import { Usuario } from './entities/usuario.entity';
@@ -36,7 +36,7 @@ import { ReportesModule } from './modules/reportes/reportes.module';
 @Module({
   imports: [
     ReportesModule, 
-    ScheduleModule.forRoot(), // ← CRON ACTIVO
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot({
       type: 'mysql',

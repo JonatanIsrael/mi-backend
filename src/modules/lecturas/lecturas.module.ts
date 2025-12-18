@@ -7,7 +7,7 @@ import { Muestra } from '../../entities/muestra.entity';
 import { VariableDependiente } from '../../entities/variable-dependiente.entity';
 import { MuestrasModule } from '../muestras/muestras.module';
 import { VariablesDependientesModule } from '../variables-dependientes/variables-dependientes.module';
-import { AuthModule } from '../../auth/auth.module'; // <-- Agregar si se usa JwtAuthGuard
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
   imports: [

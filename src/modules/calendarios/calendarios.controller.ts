@@ -8,7 +8,6 @@ import type { Request as ExpressRequest } from 'express';
 export class CalendariosController {
   constructor(private readonly calendariosService: CalendariosService) {}
 
-  // Crear un calendario
   @Post()
   @UseGuards(JwtAuthGuard)
   crear(
@@ -18,7 +17,6 @@ export class CalendariosController {
     return this.calendariosService.crear(crearCalendarioDto, req.user.id);
   }
 
-  // Listar calendarios por proyecto
   @Get('proyecto/:idProyecto')
   @UseGuards(JwtAuthGuard)
   encontrarPorProyecto(
@@ -31,6 +29,5 @@ export class CalendariosController {
   @Get('usuario/eventos')
     @UseGuards(JwtAuthGuard)
     async obtenerEventosUsuario(@Req() req: ExpressRequest & { user: { id: number } }) {
-      // Lógica para obtener todos los eventos de todos los proyectos del usuario
     }
 }

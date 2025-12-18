@@ -22,6 +22,5 @@ export class ActualizarUsuarioDto {
   contrasena?: string;
   rol?: string;
 
-  // Agregar índice para permitir acceso dinámico
   [key: string]: any;
 }

@@ -4,6 +4,6 @@ export class CrearTratamientoDto {
   factor!: string;
   nivel!: string;
   id_proyecto?: number;
-  numeroRepeticiones!: number;           // nueva propiedad
-  numeroMuestrasPorRepeticion!: number; // nueva propiedad
+  numeroRepeticiones!: number;      
+  numeroMuestrasPorRepeticion!: number; 
 }

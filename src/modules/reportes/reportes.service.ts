@@ -1,4 +1,3 @@
-// src/modules/reportes/reportes.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
@@ -27,7 +26,6 @@ export class ReportesService {
       throw new BadRequestException('Faltan parámetros: inicio y fin');
     }
 
-    // 🔹 Validar formatos flexibles
     const formatosAceptados = ['YYYY-MM-DD', 'DD/MM/YYYY', 'YYYY/MM/DD'];
     const inicioMoment = moment(fechaInicio, formatosAceptados, true);
     const finMoment = moment(fechaFin, formatosAceptados, true);
@@ -179,7 +177,6 @@ export class ReportesService {
       throw new BadRequestException('Faltan parámetros: inicio y fin');
     }
 
-    // 🔹 Validar formatos flexibles
     const formatosAceptados = ['YYYY-MM-DD', 'DD/MM/YYYY', 'YYYY/MM/DD'];
     const inicioMoment = moment(fechaInicio, formatosAceptados, true);
     const finMoment = moment(fechaFin, formatosAceptados, true);

@@ -50,7 +50,7 @@ export class ReportesController {
   ) {
     try {
       const data = await this.reportesService.generarExcelCalendario(inicio, fin);
-      const buffer = Buffer.from(data); // Forzar Buffer
+      const buffer = Buffer.from(data);
 
       const filename = `calendario_${inicio}_a_${fin}.xlsx`;
 
@@ -70,4 +70,4 @@ export class ReportesController {
       throw new InternalServerErrorException('Error generando el archivo Excel');
     }
   }
-} // <-- ESTA ES LA LLAVE QUE FALTABA
+}

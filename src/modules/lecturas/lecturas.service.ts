@@ -23,7 +23,7 @@ export class LecturasService {
     const lectura = this.lecturasRepo.create({
       ...crearLecturaDto,
       muestra,
-      variableDependiente, // coincide con la propiedad de la entidad
+      variableDependiente, 
     });
 
     return this.lecturasRepo.save(lectura);

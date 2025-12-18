@@ -1,4 +1,3 @@
-// src/modules/calendarios/calendarios.service.ts
 import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between, LessThanOrEqual, In } from 'typeorm'; // ✅ Agregar In aquí
@@ -31,7 +30,6 @@ export class CalendariosService {
       userId,
     );
     
-    // Convertir fecha de string a Date
     const fechaEvento = new Date(crearCalendarioDto.fecha);
     
     const calendario = this.calendariosRepo.create({
@@ -46,7 +44,6 @@ export class CalendariosService {
     
     const calendarioGuardado = await this.calendariosRepo.save(calendario);
     
-    // ✅ Crear notificación inmediata (opcional)
     if (crearCalendarioDto.crearNotificacionInmediata) {
       await this.crearAlertaParaEvento(calendarioGuardado, 'inmediata');
     }
@@ -58,15 +55,12 @@ export class CalendariosService {
   // 2. CRON JOBS MEJORADOS
   // ============================================
 
-  // 🔔 NOTIFICACIÓN 24 HORAS ANTES
-  @Cron('0 */6 * * *') // Cada 6 horas para mayor precisión
+  @Cron('0 */6 * * *')
   async verificarEventos24hAntes() {
-    this.logger.log('🔔 Verificando eventos próximos (24h antes)...');
     
     const ahora = new Date();
     const dentroDe24h = new Date(ahora.getTime() + 24 * 60 * 60 * 1000);
     
-    // Buscar eventos que ocurrirán en 24h ± 6 horas (ventana)
     const inicioVentana = new Date(dentroDe24h.getTime() - 6 * 60 * 60 * 1000);
     const finVentana = new Date(dentroDe24h.getTime() + 6 * 60 * 60 * 1000);
     
@@ -74,7 +68,7 @@ export class CalendariosService {
       where: {
         fecha: Between(inicioVentana, finVentana),
         notificado: false,
-        notificado24h: false, // Solo si no se ha notificado 24h antes
+        notificado24h: false,
       },
       relations: [
         'proyecto',
@@ -83,32 +77,25 @@ export class CalendariosService {
         'proyecto.equipos.miembros',
       ],
     });
-    
-    this.logger.log(`📅 Eventos encontrados para notificación 24h antes: ${eventos.length}`);
-    
+        
     for (const evento of eventos) {
       const diferenciaHoras = Math.abs(
         (evento.fecha.getTime() - ahora.getTime()) / (1000 * 60 * 60)
       );
       
-      // Solo notificar si está entre 18-30 horas antes (ventana de 24h ± 6h)
       if (diferenciaHoras >= 18 && diferenciaHoras <= 30) {
         await this.crearAlertaParaEvento(evento, '24h_antes');
         
-        // Marcar como notificado 24h antes
         await this.calendariosRepo.update(evento.id, { 
           notificado24h: true 
         });
         
-        this.logger.log(`✅ Notificación 24h antes creada para evento: ${evento.descripcion}`);
       }
     }
   }
 
-  // 🔔 NOTIFICACIÓN EL DÍA DEL EVENTO
-  @Cron(CronExpression.EVERY_HOUR) // Verificar cada hora
+  @Cron(CronExpression.EVERY_HOUR) 
   async verificarEventosHoy() {
-    this.logger.log('🔔 Verificando eventos de hoy...');
     
     const hoy = new Date();
     const inicioDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 0, 0, 0);
@@ -117,7 +104,7 @@ export class CalendariosService {
     const eventos = await this.calendariosRepo.find({
       where: {
         fecha: Between(inicioDia, finDia),
-        notificado: false, // Solo eventos no notificados HOY
+        notificado: false,
       },
       relations: [
         'proyecto',
@@ -126,31 +113,23 @@ export class CalendariosService {
         'proyecto.equipos.miembros',
       ],
     });
-    
-    this.logger.log(`📅 Eventos de hoy encontrados: ${eventos.length}`);
-    
+        
     for (const evento of eventos) {
       await this.crearAlertaParaEvento(evento, 'hoy');
       
-      // Marcar como notificado HOY
       await this.calendariosRepo.update(evento.id, { 
         notificado: true,
-        notificado24h: true, // También marcar esto como true
+        notificado24h: true, 
       });
       
-      this.logger.log(`✅ Notificación HOY creada para evento: ${evento.descripcion}`);
     }
   }
 
-  // 🔔 LIMPIAR EVENTOS ANTIGUOS (OPCIONAL)
   @Cron(CronExpression.EVERY_WEEK)
-  async limpiarEventosAntiguos() {
-    this.logger.log('🧹 Limpiando eventos antiguos...');
-    
+  async limpiarEventosAntiguos() {    
     const hace30Dias = new Date();
     hace30Dias.setDate(hace30Dias.getDate() - 30);
     
-    // Marcar eventos antiguos como notificados para que no aparezcan
     await this.calendariosRepo.update(
       {
         fecha: LessThanOrEqual(hace30Dias),
@@ -159,7 +138,6 @@ export class CalendariosService {
       { notificado: true }
     );
     
-    this.logger.log('✅ Eventos antiguos marcados como notificados');
   }
 
   // ============================================
@@ -206,7 +184,6 @@ export class CalendariosService {
         proyecto: { id: proyecto.id } as any,
         descripcion: mensaje,
         tipo: TipoAlerta.RECORDATORIO,
-        // ✅ Usar fecha UTC fija para evitar problemas
         fechaEnvio: new Date(Date.UTC(
           new Date().getUTCFullYear(),
           new Date().getUTCMonth(),
@@ -240,9 +217,7 @@ export class CalendariosService {
     });
   }
 
-  // Obtener eventos por proyecto
   async encontrarPorProyecto(idProyecto: number, userId: number) {
-    // Verificar acceso al proyecto
     await this.proyectosService.obtenerProyectosConLecturas(idProyecto, userId);
     
     return this.calendariosRepo.find({ 
@@ -252,14 +227,12 @@ export class CalendariosService {
     });
   }
 
-  // Obtener eventos próximos para un usuario
   async obtenerEventosProximosUsuario(userId: number, dias: number = 7) {
     const hoy = new Date();
     const limite = new Date();
     limite.setDate(hoy.getDate() + dias);
     
     try {
-      // Obtener proyectos donde el usuario es miembro
       const proyectosUsuario = await this.proyectosService.obtenerProyectosCompartidos(userId);
       const proyectosIds = proyectosUsuario.map(p => p.id);
       
@@ -267,7 +240,6 @@ export class CalendariosService {
         return [];
       }
       
-      // Obtener eventos de esos proyectos
       return this.calendariosRepo.find({
         where: {
           proyecto: { id: In(proyectosIds) },
@@ -282,7 +254,6 @@ export class CalendariosService {
     }
   }
 
-  // Reiniciar notificaciones para un evento (útil para reprogramar)
   async reiniciarNotificacion(eventoId: number, userId: number) {
     const evento = await this.calendariosRepo.findOne({
       where: { id: eventoId },
@@ -293,7 +264,6 @@ export class CalendariosService {
       throw new NotFoundException('Evento no encontrado');
     }
     
-    // Verificar permisos
     if (evento.proyecto.investigadorPrincipal.id !== userId) {
       throw new ForbiddenException('No tienes permiso para modificar este evento');
     }
@@ -307,10 +277,7 @@ export class CalendariosService {
     return { success: true, message: 'Notificaciones reiniciadas' };
   }
 
-  // Método para ejecutar manualmente (para pruebas)
-  async ejecutarVerificacionManual() {
-    this.logger.log('🔧 Ejecutando verificación manual de eventos...');
-    
+  async ejecutarVerificacionManual() {    
     await this.verificarEventos24hAntes();
     await this.verificarEventosHoy();
     

@@ -9,7 +9,7 @@ import { AuthModule } from '../../auth/auth.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Tratamiento]),
-    forwardRef(() => ProyectosModule), // rompe la circularidad
+    forwardRef(() => ProyectosModule),
     AuthModule,
   ],
   controllers: [TratamientosController],

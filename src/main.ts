@@ -7,8 +7,8 @@ dotenv.config();
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableCors({
-    origin: true, // tu frontend
-    credentials: true,               // si quieres enviar cookies o JWT
+    origin: true,
+    credentials: true,
   });
 
   const PORT = process.env.PORT || 3000;
@@ -16,6 +16,5 @@ async function bootstrap() {
 
 
   await app.listen(PORT, HOST);
-  console.log(`Servidor corriendo en http://${HOST}:${PORT}`);
 }
 bootstrap();

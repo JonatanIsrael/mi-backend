@@ -24,7 +24,6 @@ export class UsuariosService {
   async crearUsuario(dto: CrearUsuarioDto): Promise<Usuario> {
     const { correo, usuario, contrasena } = dto;
 
-    // Verificar duplicados en correo o usuario
     const existe = await this.usuarioRepository.findOne({
       where: [{ correo }, { usuario }],
     });
@@ -53,7 +52,7 @@ export class UsuariosService {
       );
     }
 
-    // Construir condiciones para la búsqueda
+    
     const conditions = [];
     if (correo) conditions.push({ correo });
     if (usuario) conditions.push({ usuario });
@@ -90,7 +89,7 @@ export class UsuariosService {
   ): Promise<Usuario> {
     const user = await this.encontrarPorId(id);
 
-    // Verificar si el correo ya existe (solo si se está cambiando)
+    
     if (dto.correo && dto.correo !== user.correo) {
       const existeCorreo = await this.usuarioRepository.findOne({
         where: { correo: dto.correo },
@@ -100,20 +99,18 @@ export class UsuariosService {
       }
     }
 
-    // Si se está cambiando la contraseña, hashearla
+    
     if (dto.contrasena) {
       dto.contrasena = await bcrypt.hash(dto.contrasena, 10);
     } else {
-      // Si no se cambia la contraseña, eliminar la propiedad del DTO
-      // para no sobreescribir la contraseña existente con undefined
+      
       delete dto.contrasena;
     }
 
-    // Actualizar solo las propiedades que vienen en el DTO
-    // Usar type assertion para evitar errores de TypeScript
+    
     Object.keys(dto).forEach((key: keyof ActualizarUsuarioDto) => {
       if (dto[key] !== undefined) {
-        // Usar type assertion para user también
+        
         (user as any)[key] = dto[key];
       }
     });

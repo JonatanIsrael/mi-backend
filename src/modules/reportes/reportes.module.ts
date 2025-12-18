@@ -1,4 +1,4 @@
-// src/modules/reportes/reportes.module.ts
+
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ReportesService } from './reportes.service';

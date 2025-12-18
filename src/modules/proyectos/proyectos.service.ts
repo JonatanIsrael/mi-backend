@@ -12,7 +12,7 @@ import { Equipo, RolEquipo } from '../../entities/equipo.entity';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { Usuario } from '../../entities/usuario.entity';
 import { Calendario, TipoEvento } from '../../entities/calendario.entity';
-import { AlertasService } from '../alertas/alertas.service'; // ✅ Agregar este import
+import { AlertasService } from '../alertas/alertas.service';
 import * as ExcelJS from 'exceljs';
 import * as PDFDocument from 'pdfkit';
 
@@ -29,7 +29,7 @@ export class ProyectosService {
     @InjectRepository(Calendario) private readonly calendarioRepo: Repository<Calendario>,
     @InjectRepository(Usuario) private readonly usuarioRepo: Repository<Usuario>,
     private readonly usuariosService: UsuariosService,
-    private readonly alertasService: AlertasService, // ✅ Agregar esta dependencia
+    private readonly alertasService: AlertasService, 
   ) {}
 
   // ------------------------------------------------
@@ -39,31 +39,22 @@ export class ProyectosService {
 private parseLocalDate(dateStr: string): Date {
   if (!dateStr) return new Date();
   
-  // ✅ Método más robusto para crear fecha local
   const [year, month, day] = dateStr.split('-').map(Number);
   
-  // Crear fecha en hora local explícitamente, forzando hora 00:00:00 local
   const fechaLocal = new Date(year, month - 1, day, 0, 0, 0, 0);
   
   return fechaLocal;
 }
 async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) {
-  console.log('🔍 DEBUG Fechas recibidas del frontend:', {
-    fechaInicio: dto.fechaInicio,
-    fechaFin: dto.fechaFin,
-    fechasObservacion: dto.fechasObservacion
-  });
 
   if (!dto.nombre) throw new Error('El proyecto debe tener un nombre');
   if (!dto.fechaInicio || !dto.fechaFin) throw new Error('Debe proporcionar fechaInicio y fechaFin');
   if (!dto.fechasObservacion || dto.fechasObservacion.length === 0)
     throw new Error('Se deben proporcionar las fechas de observación desde el front');
 
-  // 🔹 Obtener usuario investigador
   const investigador = await this.usuariosService.encontrarPorId(dto.userId);
   if (!investigador) throw new Error('Usuario no encontrado');
 
-  // 1️⃣ Crear proyecto - ✅ NO USAR parseLocalDate para fechaInicio y fechaFin
   const proyecto = this.proyectosRepo.create({
     nombre: dto.nombre,
     descripcion: dto.descripcion,
@@ -73,15 +64,8 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
     investigadorPrincipal: investigador,
   });
 
-  console.log('🔍 DEBUG Proyecto a guardar:', {
-    fechaInicio: proyecto.fechaInicio,
-    fechaFin: proyecto.fechaFin
-  });
-
   const proyectoGuardado = await this.proyectosRepo.save(proyecto);
 
-
-  // 2️⃣ Crear variables dependientes
   const variablesGuardadas: VariableDependiente[] = [];
   for (const v of dto.variablesDependientes || []) {
     const variable = this.variableRepo.create({
@@ -93,8 +77,6 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
     variablesGuardadas.push(await this.variableRepo.save(variable));
   }
 
-  // 3️⃣ Crear tratamientos + repeticiones + muestras + lecturas
-  // ✅ PARA LECTURAS SÍ usar parseLocalDate (porque ahí funciona bien)
   for (const t of dto.tratamientos || []) {
     const tratamiento = this.tratamientoRepo.create({
       nombre: t.nombre,
@@ -144,11 +126,11 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
     }
   }
 
-  // ✅ Crear eventos de calendario para cada fecha de observación
+  // Crear eventos de calendario para cada fecha de observación
   for (const fechaStr of dto.fechasObservacion) {
     const evento = this.calendarioRepo.create({
       proyecto: proyectoGuardado,
-      fecha: this.parseLocalDate(fechaStr), // ✅ Usar fecha local
+      fecha: this.parseLocalDate(fechaStr),
       descripcion: `Observación programada para el proyecto "${dto.nombre}"`,
       tipoEvento: TipoEvento.OBSERVACION,
       notificado: false,
@@ -158,7 +140,7 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
     await this.calendarioRepo.save(evento);
   }
 
-  // 🔹 Devolver proyecto completo con relaciones
+  // Devolver proyecto completo con relaciones
   return this.proyectosRepo.findOne({
     where: { id: proyectoGuardado.id },
     relations: [
@@ -275,7 +257,6 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
       proyectoLimpio.tratamientos.push(tClean);
     }
 
-    // 🔹 Tipar las funciones flatMap para evitar errores TS7006
     const totalLecturas = (proyectoLimpio.tratamientos as any[])
       .flatMap((t: any) => t.repeticiones)
       .flatMap((r: any) => r.muestras)
@@ -324,7 +305,6 @@ async crearProyectoCompleto(dto: CrearProyectoCompletoDto & { userId: number }) 
   //Exportar Excel
 
 async exportarProyectoExcel(proyectoId: number, userId: number): Promise<Buffer> {
-  // Obtener proyecto con relaciones necesarias
   const proyecto = await this.proyectosRepo.findOne({
     where: { id: proyectoId },
     relations: [
@@ -389,7 +369,6 @@ async exportarProyectoExcel(proyectoId: number, userId: number): Promise<Buffer>
     t.repeticiones.forEach(r => {
       r.muestras.forEach(m => {
         fechasOrdenadas.forEach(fechaStr => {
-          // ✅ SOLUCIÓN CORREGIDA: Crear array primero, luego modificar celdas individuales
           const rowData = [
             fechaStr,
             t.nombre,
@@ -402,17 +381,13 @@ async exportarProyectoExcel(proyectoId: number, userId: number): Promise<Buffer>
                 return lecturaFecha === fechaStr && l.variableDependiente?.id === v.id;
               });
               
-              // Valor temporal - luego lo corregiremos
               return lectura?.valor !== null && lectura?.valor !== undefined ? lectura.valor : null;
             })
           ];
-
-          // ✅ AGREGAR LA FILA CON EL ARRAY
           const row = sheet.addRow(rowData);
           
-          // ✅ CORREGIR LAS CELDAS DE VARIABLES DESPUÉS DE AGREGAR LA FILA
           proyecto.variablesDependientes.forEach((v, index) => {
-            const cellIndex = 5 + index; // Columna 5 en adelante
+            const cellIndex = 5 + index;
             const lectura = m.lecturas.find(l => {
               if (!l.fechaProgramada) return false;
               const lecturaFecha = new Date(l.fechaProgramada).toISOString().split('T')[0];
@@ -420,10 +395,8 @@ async exportarProyectoExcel(proyectoId: number, userId: number): Promise<Buffer>
             });
 
             if (lectura && lectura.valor !== null && lectura.valor !== undefined) {
-              // Mantener el valor numérico
               row.getCell(cellIndex).value = lectura.valor;
             } else {
-              // ✅ FORZAR CELDA COMPLETAMENTE VACÍA
               row.getCell(cellIndex).value = '';
             }
           });
@@ -441,7 +414,6 @@ async exportarProyectoExcel(proyectoId: number, userId: number): Promise<Buffer>
 async generarPDFProyecto(proyectoId: number, userId: number, fechas: string[]): Promise<Buffer> {
   const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
   
-  // Usaremos pdfkit para generar el PDF
   const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ 
     margin: 40,
@@ -521,10 +493,8 @@ async generarPDFProyecto(proyectoId: number, userId: number, fechas: string[]): 
   });
 }
 
-// Y asegúrate de que este método también esté en la clase:
-// ✅ MÉTODO CORREGIDO - Usar formato directo sin conversión de zona horaria
 private formatearFechaParaPDF(fechaStr: string): string {
-  // Si la fecha ya viene en formato YYYY-MM-DD, usarla directamente
+  
   if (fechaStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
     const [year, month, day] = fechaStr.split('-');
     const fecha = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
@@ -536,10 +506,8 @@ private formatearFechaParaPDF(fechaStr: string): string {
     });
   }
   
-  // Para otros formatos, usar el método seguro
   const fecha = new Date(fechaStr);
   
-  // Ajustar a hora local explícitamente
   const fechaAjustada = new Date(
     fecha.getFullYear(),
     fecha.getMonth(),
@@ -553,26 +521,23 @@ private formatearFechaParaPDF(fechaStr: string): string {
   });
 }
 
-// Y el método generarTablaFechaPDF que ya tenemos mejorado:
 private generarTablaFechaPDF(doc: any, proyecto: any, fecha: string, startY: number): number {
   const pageWidth = doc.page.width - 100;
   let currentY = startY;
 
-  // 🔹 DEFINIR ENCABEZADOS UNA SOLA VEZ (para reutilizar en nuevas páginas)
   const columnWidths: { [key: string]: number } = {
     tratamiento: pageWidth * 0.25,
     repeticion: pageWidth * 0.15,
     muestra: pageWidth * 0.1
   };
 
-  // Agregar anchos para variables
+
   proyecto.variablesDependientes.forEach((v: any, index: number) => {
     columnWidths[`var_${index}`] = pageWidth * 0.5 / proyecto.variablesDependientes.length;
   });
 
   const columnKeys = Object.keys(columnWidths);
   
-  // ✅ MEJORADO: Mostrar clave y unidad en dos líneas separadas
   const headers = [
     'Tratamiento',
     'Repetición', 
@@ -580,7 +545,6 @@ private generarTablaFechaPDF(doc: any, proyecto: any, fecha: string, startY: num
     ...proyecto.variablesDependientes.map((v: any) => `${v.clave}\n${v.unidad}`)
   ];
 
-  // ✅ FUNCIÓN REUTILIZABLE para dibujar encabezados
   const dibujarEncabezadosTabla = (yPosition: number) => {
     doc.fontSize(7).font('Helvetica-Bold');
     let x = 50;
@@ -604,7 +568,6 @@ private generarTablaFechaPDF(doc: any, proyecto: any, fecha: string, startY: num
     return yPosition + 25;
   };
 
-  // ✅ DIBUJAR ENCABEZADOS INICIALES
   currentY = dibujarEncabezadosTabla(currentY);
   doc.fillColor('#000000');
 
@@ -619,7 +582,6 @@ private generarTablaFechaPDF(doc: any, proyecto: any, fecha: string, startY: num
           doc.addPage();
           currentY = 70;
           
-          // ✅ REPETIR ENCABEZADOS EN NUEVA PÁGINA
           currentY = dibujarEncabezadosTabla(currentY);
           doc.fillColor('#000000').font('Helvetica');
         }
@@ -709,7 +671,6 @@ private generarTablaFechaPDF(doc: any, proyecto: any, fecha: string, startY: num
     });
     await this.equipoRepo.save(equipo);
 
-    // ✅ GENERAR NOTIFICACIÓN para agregarColaborador
     await this.alertasService.crearNotificacionProyectoCompartido({
       usuarioId: usuarioId,
       proyectoId: proyectoId,
@@ -754,7 +715,6 @@ private generarTablaFechaPDF(doc: any, proyecto: any, fecha: string, startY: num
     });
     await this.equipoRepo.save(equipo);
 
-    // ✅ GENERAR NOTIFICACIÓN para agregarColaboradorPorCorreo
     await this.alertasService.crearNotificacionProyectoCompartido({
       usuarioId: usuario.id,
       proyectoId: proyectoId,
@@ -798,7 +758,6 @@ private generarTablaFechaPDF(doc: any, proyecto: any, fecha: string, startY: num
     });
     await this.equipoRepo.save(equipo);
 
-    // ✅ GENERAR NOTIFICACIÓN para agregarColaboradorPorUsuario
     await this.alertasService.crearNotificacionProyectoCompartido({
       usuarioId: usuario.id,
       proyectoId: proyectoId,
@@ -889,7 +848,6 @@ private generarTablaFechaPDF(doc: any, proyecto: any, fecha: string, startY: num
     });
   }
 
-// En proyectos.service.ts - Agrega este método
 async obtenerResumenEstadistico(proyectoId: number, userId: number) {
   const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
   
@@ -956,18 +914,12 @@ async obtenerResumenEstadistico(proyectoId: number, userId: number) {
   };
 }
 
-// En ProyectosService - CORRIGE este método
-// En ProyectosService - CORRIGE los tipos de error
 async generarResumenEstadisticoPDF(proyectoId: number, userId: number, body: any): Promise<Buffer> {
   try {
-    // Verificar que el usuario tenga acceso al proyecto
     const proyecto = await this.obtenerProyectosConLecturas(proyectoId, userId);
     
-    // ✅ EXTRAER los datos del resumen del body
+  
     const resumenData = body.resumenData || body;
-    
-    console.log('🔍 DEBUG - Proyecto:', proyecto.nombre);
-    console.log('🔍 DEBUG - Resumen data recibida:', resumenData);
     
     const PDFDocument = require('pdfkit');
     const doc = new PDFDocument({ 
@@ -985,9 +937,7 @@ async generarResumenEstadisticoPDF(proyectoId: number, userId: number, body: any
         resolve(pdfData);
       });
 
-      // ✅ CORREGIDO: Especificar tipo para error
       doc.on('error', (error: Error) => {
-        console.error('❌ Error en PDFDocument:', error);
         reject(new Error(`Error generando PDF: ${error.message || 'Error desconocido'}`));
       });
 
@@ -1010,7 +960,6 @@ async generarResumenEstadisticoPDF(proyectoId: number, userId: number, body: any
         
         startY += 30;
         
-        // ✅ USAR los datos correctos del resumen
         const resumenArray = resumenData.resumen || resumenData.resumenData?.resumen || [];
         const totalMuestras = resumenData.totalMuestras || resumenData.resumenData?.totalMuestras || 0;
         const totalLecturas = resumenData.totalLecturas || resumenData.resumenData?.totalLecturas || 0;
@@ -1050,8 +999,6 @@ async generarResumenEstadisticoPDF(proyectoId: number, userId: number, body: any
 
         doc.end();
       } catch (innerError: unknown) {
-        console.error('❌ Error en la generación del PDF:', innerError);
-        // ✅ CORREGIDO: Manejo seguro de error unknown
         const errorMessage = innerError instanceof Error ? innerError.message : 
                             typeof innerError === 'string' ? innerError : 
                             'Error desconocido en la generación del PDF';
@@ -1059,8 +1006,6 @@ async generarResumenEstadisticoPDF(proyectoId: number, userId: number, body: any
       }
     });
   } catch (error: unknown) {
-    console.error('❌ Error generando PDF de resumen:', error);
-    // ✅ CORREGIDO: Manejo seguro de error unknown
     const errorMessage = error instanceof Error ? error.message : 
                         typeof error === 'string' ? error : 
                         'Error desconocido al generar PDF del resumen estadístico';
@@ -1139,7 +1084,6 @@ private generarTablaResumenPDF(doc: any, resumen: any[], startY: number): number
         doc.fillColor('#000000').font('Helvetica').fontSize(7);
       }
 
-      // ✅ VALIDAR que los datos existan antes de usarlos
       const rowData = [
         `${item.variable || 'N/A'} (${item.unidad || 'N/A'})`,
         (item.n || 0).toString(),
@@ -1179,8 +1123,6 @@ private generarTablaResumenPDF(doc: any, resumen: any[], startY: number): number
 
     return currentY;
   } catch (error: unknown) {
-    console.error('❌ Error en generarTablaResumenPDF:', error);
-    // ✅ CORREGIDO: Manejo seguro de error unknown
     const errorMessage = error instanceof Error ? error.message : 
                         typeof error === 'string' ? error : 
                         'Error desconocido generando tabla PDF';

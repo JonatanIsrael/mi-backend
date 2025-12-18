@@ -10,8 +10,6 @@ export class UsuariosController {
   async crearUsuario(@Body() dto: CrearUsuarioDto) {
     const user = await this.usuariosService.crearUsuario(dto);
     
-    console.log('🚀 Controlador Register - fecha_registro:', user.fecha_registro);
-    
     return {
       message: 'Usuario creado correctamente',
       user: {
@@ -22,7 +20,7 @@ export class UsuariosController {
         apellido_m: user.apellido_m,
         correo: user.correo,
         rol: user.rol,
-        fecha_registro: user.fecha_registro // ✅ Incluido
+        fecha_registro: user.fecha_registro
       }
     };
   }
@@ -30,8 +28,6 @@ export class UsuariosController {
   @Post('login')
   async login(@Body() dto: LoginUsuarioDto) {
     const user = await this.usuariosService.login(dto);
-    
-    console.log('🚀 Controlador Login - fecha_registro:', user.fecha_registro);
     
     return {
       message: 'Login exitoso',
@@ -43,7 +39,7 @@ export class UsuariosController {
         apellido_m: user.apellido_m,
         correo: user.correo,
         rol: user.rol,
-        fecha_registro: user.fecha_registro // ✅ Incluido
+        fecha_registro: user.fecha_registro
       },
       token: 'tu-token-jwt'
     };
@@ -56,8 +52,6 @@ export class UsuariosController {
   ) {
     const user = await this.usuariosService.actualizarUsuario(id, dto);
     
-    console.log('🚀 Controlador Actualizar - fecha_registro:', user.fecha_registro);
-    
     return {
       message: 'Usuario actualizado correctamente',
       user: {
@@ -68,7 +62,7 @@ export class UsuariosController {
         apellido_m: user.apellido_m,
         correo: user.correo,
         rol: user.rol,
-        fecha_registro: user.fecha_registro // ✅ Incluido
+        fecha_registro: user.fecha_registro
       }
     };
   }
@@ -85,7 +79,7 @@ export class UsuariosController {
       apellido_m: user.apellido_m,
       correo: user.correo,
       rol: user.rol,
-      fecha_registro: user.fecha_registro // ✅ Incluido
+      fecha_registro: user.fecha_registro
     };
   }
 
@@ -93,7 +87,6 @@ export class UsuariosController {
   async listar() {
     const usuarios = await this.usuariosService.listar();
     
-    // Para el listado, también incluir fecha_registro si es necesario
     return usuarios.map(user => ({
       id: user.id,
       usuario: user.usuario,
@@ -120,7 +113,7 @@ export class UsuariosController {
         apellido_m: user.apellido_m,
         correo: user.correo,
         rol: user.rol,
-        fecha_registro: user.fecha_registro // ✅ Incluir también aquí
+        fecha_registro: user.fecha_registro
       }
     };
   }

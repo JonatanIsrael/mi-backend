@@ -1,4 +1,3 @@
-// src/modules/alertas/alertas.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -31,7 +30,6 @@ export class AlertasService {
     return this.alertasRepo.save(alerta);
   }
 
-  // 🔹 NUEVO MÉTODO - Crear notificación de proyecto compartido
   async crearNotificacionProyectoCompartido(data: {
     usuarioId: number;
     proyectoId: number;
@@ -65,7 +63,6 @@ export class AlertasService {
     return await this.alertasRepo.save(notificacion);
   }
 
-  // 🔹 MÉTODO - Obtener notificaciones de proyectos compartidos
   async obtenerNotificacionesProyectosCompartidos(userId: number) {
     return this.alertasRepo.find({
       where: { 
@@ -78,7 +75,6 @@ export class AlertasService {
     });
   }
 
-  // ✅ AGREGAR ESTE MÉTODO FALTANTE
   async obtenerAlertasUsuario(userId: number) {
     return this.alertasRepo.find({
       where: { usuario: { id: userId } },
@@ -88,7 +84,6 @@ export class AlertasService {
     });
   }
 
-  // 🔹 MÉTODO - Marcar notificación como leída
   async marcarComoLeida(alertaId: number, userId: number) {
     const alerta = await this.alertasRepo.findOne({
       where: { id: alertaId, usuario: { id: userId } }

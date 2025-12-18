@@ -1,4 +1,4 @@
-// src/modules/calendarios/calendarios.module.ts
+
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CalendariosController } from './calendarios.controller';
@@ -8,14 +8,14 @@ import { Proyecto } from '../../entities/proyecto.entity';
 import { Alerta } from '../../entities/alerta.entity';
 import { AuthModule } from '../../auth/auth.module';
 import { ProyectosModule } from '../proyectos/proyectos.module';
-import { UsuariosModule } from '../usuarios/usuarios.module'; // ✅ Agregar esta importación
+import { UsuariosModule } from '../usuarios/usuarios.module'; 
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Calendario, Proyecto, Alerta]),
     AuthModule,
     ProyectosModule,
-    UsuariosModule, // ✅ Agregar esta línea
+    UsuariosModule,
   ],
   controllers: [CalendariosController],
   providers: [CalendariosService],

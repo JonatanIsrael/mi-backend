@@ -17,7 +17,7 @@ import { ComentariosService } from './comentarios.service';
 import { AlertasModule } from '../alertas/alertas.module';
 import { Usuario } from '../../entities/usuario.entity';
 import { Alerta } from '../../entities/alerta.entity';
-import { AuthModule } from '../../auth/auth.module'; // ✅ AGREGAR ESTA LÍNEA
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
   imports: [
@@ -36,7 +36,7 @@ import { AuthModule } from '../../auth/auth.module'; // ✅ AGREGAR ESTA LÍNEA
     ]),
     UsuariosModule,
     AlertasModule,
-    AuthModule, // ✅ AGREGAR AuthModule AQUÍ
+    AuthModule, 
   ],
   providers: [
     ProyectosService,

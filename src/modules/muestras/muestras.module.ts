@@ -5,7 +5,7 @@ import { MuestrasService } from './muestras.service';
 import { Muestra } from '../../entities/muestra.entity';
 import { Repeticion } from '../../entities/repeticion.entity';
 import { RepeticionesModule } from '../repeticiones/repeticiones.module';
-import { AuthModule } from '../../auth/auth.module'; // <-- Agregar si se usa JwtAuthGuard
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
   imports: [

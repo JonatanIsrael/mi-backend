@@ -5,8 +5,7 @@ import { ObservacionesService } from './observaciones.service';
 import { Observacion } from '../../entities/observacion.entity';
 import { Lectura } from '../../entities/lectura.entity';
 import { LecturasModule } from '../lecturas/lecturas.module';
-import { AuthModule } from '../../auth/auth.module'; // <-- Agregar si se usa JwtAuthGuard
-
+import { AuthModule } from '../../auth/auth.module'; 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Observacion, Lectura]),

@@ -34,7 +34,7 @@ export class EquiposService {
       ),
     );
 
-    // Crear el equipo con relaciones correctas
+    // Crear el equipo con relaciones
     const equipo = this.equiposRepo.create({
       proyecto,
       miembros,

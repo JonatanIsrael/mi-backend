@@ -38,12 +38,11 @@ async crearProyectoCompleto(
     const userId = req.user?.id;
     if (!userId) throw new HttpException('No autorizado', HttpStatus.UNAUTHORIZED);
 
-    // ✅ VALIDAR que las fechas existan
+   
     if (!dto.fechaInicio || !dto.fechaFin) {
       throw new HttpException('fechaInicio y fechaFin son requeridos', HttpStatus.BAD_REQUEST);
     }
 
-    // ✅ SOLUCIÓN SIMPLE: Usar las fechas directamente
     const data = await this.proyectosService.crearProyectoCompleto({ ...dto, userId });
     return { success: true, proyecto: data };
   } catch (error: any) {
@@ -105,36 +104,30 @@ async exportarExcel(
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Proyecto');
     
-    // Encabezados
+    
     const header = ['Fecha Registro', 'Tratamiento', 'Repetición', 'Muestra', ...proyecto.variablesDependientes.map((v: any) => `${v.clave} (${v.unidad})`)];
     sheet.addRow(header);
 
-    // ✅ SOLUCIÓN CORREGIDA: Función para formatear fechas sin desfase
+  
     const formatLocalDate = (fechaStr: string): string => {
       if (!fechaStr) return '';
       
-      // Si ya es formato YYYY-MM-DD, usar directamente
+      
       if (/^\d{4}-\d{2}-\d{2}$/.test(fechaStr)) {
         return fechaStr;
       }
       
-      // Si es otro formato, parsear manualmente sin usar new Date()
       if (typeof fechaStr === 'string') {
-        // Intentar diferentes formatos
         if (fechaStr.includes('T')) {
-          // Formato ISO: "2025-11-01T00:00:00.000Z"
           const [datePart] = fechaStr.split('T');
           return datePart;
         } else if (fechaStr.includes('/')) {
-          // Formato local: "01/11/2025"
           const [day, month, year] = fechaStr.split('/');
           return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
         }
       }
       
-      // Último recurso: usar new Date() pero compensando zona horaria
       const fecha = new Date(fechaStr);
-      // Compensar diferencia de zona horaria
       const fechaCompensada = new Date(fecha.getTime() + (fecha.getTimezoneOffset() * 60000));
       const year = fechaCompensada.getFullYear();
       const month = String(fechaCompensada.getMonth() + 1).padStart(2, '0');
@@ -143,26 +136,21 @@ async exportarExcel(
       return `${year}-${month}-${day}`;
     };
 
-    // Iterar sobre las lecturas
     proyecto.tratamientos.forEach((t: any) => {
       t.repeticiones.forEach((r: any) => {
         r.muestras.forEach((m: any) => {
           m.lecturas.forEach((l: any) => {
             if (l.fechaLectura) {
-              // ✅ Usar la función corregida
               const fechaStr = formatLocalDate(l.fechaLectura);
               
-              // Buscar si ya existe una fila para esta combinación fecha+muestra
               const existingRow = this.findRow(sheet, t.nombre, r.numero, m.numero, fechaStr);
               
               if (existingRow) {
-                // Actualizar fila existente
                 const variableIndex = proyecto.variablesDependientes.findIndex((v: any) => v.id === l.variableDependiente?.id);
                 if (variableIndex !== -1) {
                   existingRow.getCell(5 + variableIndex).value = l.valor || 0;
                 }
               } else {
-                // Crear nueva fila
                 const rowData = [
                   fechaStr,
                   t.nombre,
@@ -198,7 +186,6 @@ async exportarExcel(
   }
 }
 
-// ✅ Función auxiliar para buscar filas existentes
 private findRow(sheet: ExcelJS.Worksheet, tratamiento: string, repeticion: number, muestra: number, fecha: string): ExcelJS.Row | null {
   for (let i = 2; i <= sheet.rowCount; i++) {
     const row = sheet.getRow(i);
@@ -211,8 +198,6 @@ private findRow(sheet: ExcelJS.Worksheet, tratamiento: string, repeticion: numbe
   }
   return null;
 }
-
- /// PDF con plantillas
 
 @Post(':id/generar-pdf')
 @UseGuards(JwtAuthGuard)
@@ -229,7 +214,6 @@ async generarPDF(
     body.fechas
   );
 
-  // Configurar headers para descarga
   const filename = `Proyecto-${proyectoId}-${new Date().toISOString().split('T')[0]}.pdf`;
 
   return new StreamableFile(pdfBuffer, {
@@ -242,14 +226,14 @@ async generarPDF(
   @UseGuards(JwtAuthGuard)
   async compartirProyecto(
     @Param('id') id: string,
-    @Body() body: { correo?: string; usuario?: string; rol?: string; usuarioId?: number }, // ✅ Agregar usuarioId
+    @Body() body: { correo?: string; usuario?: string; rol?: string; usuarioId?: number },
     @Request() req: ExpressRequest & { user: { id: number } },
   ) {
     const puedeEditar = await this.proyectosService.puedeEditarProyecto(req.user.id, +id);
     if (!puedeEditar) throw new HttpException('No autorizado para compartir', HttpStatus.FORBIDDEN);
 
     const rol = body.rol === 'responsable' ? RolEquipo.RESPONSABLE : RolEquipo.COLABORADOR;
-    const usuarioQueComparteId = req.user.id; // ✅ Obtener el ID del usuario que comparte
+    const usuarioQueComparteId = req.user.id;
 
     let equipo;
     if (body.correo) {
@@ -257,21 +241,21 @@ async generarPDF(
         +id, 
         body.correo, 
         rol, 
-        usuarioQueComparteId // ✅ Pasar el usuario que comparte
+        usuarioQueComparteId 
       );
     } else if (body.usuario) {
       equipo = await this.proyectosService.agregarColaboradorPorUsuario(
         +id, 
         body.usuario, 
         rol, 
-        usuarioQueComparteId // ✅ Pasar el usuario que comparte
+        usuarioQueComparteId 
       );
     } else if (body.usuarioId) {
       equipo = await this.proyectosService.agregarColaborador(
         +id, 
         body.usuarioId, 
         rol, 
-        usuarioQueComparteId // ✅ Pasar el usuario que comparte
+        usuarioQueComparteId 
       );
     } else {
       throw new HttpException('Debe enviar correo, usuario o usuarioId', HttpStatus.BAD_REQUEST);
@@ -280,7 +264,6 @@ async generarPDF(
     return { success: true, equipo };
   }
 
-  // === RUTAS DE COMENTARIOS ===
   @Post(':id/comentarios')
   @UseGuards(JwtAuthGuard)
   async crearComentario(
@@ -346,7 +329,6 @@ async generarPDF(
     return this.proyectosService.obtenerProyectosPorUsuario(actualUserId, +userId);
   }
 
-  // En proyectos.controller.ts
 @Get(':id/resumen-estadistico')
 @UseGuards(JwtAuthGuard)
 async obtenerResumenEstadistico(
@@ -388,24 +370,21 @@ async exportarResumenPDF(
   });
 }
 
-// En proyectos.controller.ts - CORRIGE este endpoint
-@Post(':id/generar-resumen-pdf')  // ✅ Cambiar a generar-resumen-pdf
+@Post(':id/generar-resumen-pdf')
 @UseGuards(JwtAuthGuard)
 async generarResumenPDF(
   @Param('id', ParseIntPipe) proyectoId: number,
-  @Body() body: { resumenData: any },  // ✅ Cambiar a resumenData
+  @Body() body: { resumenData: any },  
   @Request() req: ExpressRequest & { user: { id: number } }
 ) {
   try {
-    console.log('🔍 DEBUG - Generando PDF para proyecto:', proyectoId);
-    console.log('🔍 DEBUG - Datos recibidos:', body);
     
     const userId = req.user.id;
     
     const pdfBuffer = await this.proyectosService.generarResumenEstadisticoPDF(
       proyectoId, 
       userId, 
-      body  // ✅ Pasar el body completo
+      body  
     );
 
     const filename = `Resumen-Estadistico-${new Date().toISOString().split('T')[0]}.pdf`;
@@ -415,7 +394,6 @@ async generarResumenPDF(
       disposition: `attachment; filename="${filename}"`,
     });
   } catch (error: any) {
-    console.error('❌ Error en generarResumenPDF:', error);
     throw new HttpException(
       error.message || 'Error al generar PDF del resumen',
       error.status || HttpStatus.INTERNAL_SERVER_ERROR,

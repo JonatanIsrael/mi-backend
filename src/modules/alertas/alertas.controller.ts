@@ -17,7 +17,6 @@ export class AlertasController {
     return this.alertasService.crear(crearAlertaDto, req.user.id);
   }
 
-  // 🔹 NUEVO ENDPOINT - Obtener alertas del usuario
   @Get()
   @UseGuards(JwtAuthGuard)
   async obtenerAlertasUsuario(

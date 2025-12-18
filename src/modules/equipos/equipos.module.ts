@@ -5,7 +5,7 @@ import { EquiposService } from './equipos.service';
 import { EquiposController } from './equipos.controller';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { ProyectosModule } from '../proyectos/proyectos.module';
-import { AuthModule } from '../../auth/auth.module'; // 🔹 ruta corregida
+import { AuthModule } from '../../auth/auth.module';
 
 @Module({
   imports: [
