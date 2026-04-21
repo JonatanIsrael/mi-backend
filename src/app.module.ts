@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { MailerModule } from '@nestjs-modules/mailer';
 
 // Entities
 import { Usuario } from './entities/usuario.entity';
@@ -17,6 +18,7 @@ import { Calendario } from './entities/calendario.entity';
 import { Alerta } from './entities/alerta.entity';
 import { Observacion } from './entities/observacion.entity';
 import { Comentario } from './entities/comentario.entity';
+import { SeedModule } from './seed/seed.module';
 
 // Modules
 import { AuthModule } from './auth/auth.module';
@@ -38,6 +40,22 @@ import { ReportesModule } from './modules/reportes/reportes.module';
     ReportesModule, 
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
+    MailerModule.forRoot({
+      transport: {
+        host: process.env.MAIL_HOST,
+
+        port: parseInt(
+          process.env.MAIL_PORT || '587'
+        ),
+
+        secure:false,
+
+        auth: {
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASS
+        }
+      }
+    }),
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: process.env.DB_HOST || 'localhost',
@@ -61,6 +79,7 @@ import { ReportesModule } from './modules/reportes/reportes.module';
       ],
       synchronize: true,
     }),
+    SeedModule,
     AuthModule,
     UsuariosModule,
     ProyectosModule,

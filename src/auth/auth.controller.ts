@@ -10,4 +10,23 @@ export class AuthController {
   async login(@Body() dto: LoginUsuarioDto) {
     return this.authService.login(dto);
   }
+  
+  @Post('forgot-password')
+  async forgotPassword(
+  @Body('correo') correo:string
+  ){
+  return this.authService
+  .forgotPassword(correo);
+  }
+
+  @Post('reset-password')
+  async resetPassword(
+  @Body() body: {
+    token: string;
+    password:string;
+  }
+  ){
+  return this.authService
+  .resetPassword(body);
+  }
 }

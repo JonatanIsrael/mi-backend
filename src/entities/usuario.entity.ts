@@ -37,6 +37,18 @@ export class Usuario {
   contrasena!: string;
 
   @Column({
+  type: 'varchar',
+  nullable:true
+  })
+  resetToken!: string | null;
+
+  @Column({
+  type:'datetime',
+  nullable:true
+  })
+  resetTokenExpires!: Date | null;
+
+  @Column({
     type: 'enum',
     enum: TipoUsuario,
   })
